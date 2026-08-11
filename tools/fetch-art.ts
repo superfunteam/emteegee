@@ -18,6 +18,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import type { CardDef } from '../src/engine/types';
+import { TOKEN_ART } from '../src/data/tokens';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CARDS = resolve(HERE, '../src/data/cards.json');
@@ -28,6 +29,8 @@ const USER_AGENT = 'emteegee/0.1 (open-source beginner MTG demo)';
 const CONCURRENCY = 6;
 
 const WIDTHS = { art: 420, card: 320 } as const;
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 interface Job {
   oracleId: string;
@@ -84,7 +87,32 @@ async function runPool(jobs: Job[]): Promise<{ bytes: number; failures: string[]
   return { bytes, failures };
 }
 
-function main(): Promise<void> {
+/**
+ * Tokens are real Scryfall cards, so they get real art. They are not in the pool (you
+ * never hold one), so their image urls are resolved by id rather than from the cache.
+ * `/cards/<id>` is in the 10/second bucket; 100ms between calls is polite and plenty.
+ */
+async function tokenJobs(force: boolean): Promise<Job[]> {
+  const jobs: Job[] = [];
+  for (const [key, id] of Object.entries(TOKEN_ART)) {
+    const path = resolve(ART_DIR, `token-${key}-art.jpg`);
+    if (!force && existsSync(path)) continue;
+
+    const res = await fetch(`https://api.scryfall.com/cards/${id}`, {
+      headers: { 'User-Agent': USER_AGENT, 'Accept': 'application/json' },
+    });
+    if (!res.ok) throw new Error(`token "${key}" (${id}): ${res.status} ${res.statusText}`);
+    const card = (await res.json()) as { image_uris?: Record<string, string> };
+    const url = card.image_uris?.art_crop;
+    if (!url) throw new Error(`token "${key}" (${id}) has no art_crop image`);
+
+    jobs.push({ oracleId: `token-${key}`, kind: 'art', url, path });
+    await sleep(110);
+  }
+  return jobs;
+}
+
+async function main(): Promise<void> {
   const force = process.argv.includes('--force');
 
   if (!existsSync(CARDS)) {
@@ -123,21 +151,22 @@ function main(): Promise<void> {
     console.warn(`no image source for ${missingSource.length} cards: ${missingSource.slice(0, 5).join(', ')}`);
   }
 
+  jobs.push(...(await tokenJobs(force)));
+
   if (!jobs.length) {
     console.log('art bundle is already complete');
     reportTotal();
-    return Promise.resolve();
+    return;
   }
 
-  console.log(`downloading ${jobs.length} images for ${Object.keys(defs).length} cards`);
-  return runPool(jobs).then(({ failures }) => {
-    if (failures.length) {
-      console.error(`\n${failures.length} downloads failed:`);
-      for (const f of failures.slice(0, 20)) console.error(`  ${f}`);
-      process.exit(1);
-    }
-    reportTotal();
-  });
+  console.log(`downloading ${jobs.length} images for ${Object.keys(defs).length} cards + ${Object.keys(TOKEN_ART).length} tokens`);
+  const { failures } = await runPool(jobs);
+  if (failures.length) {
+    console.error(`\n${failures.length} downloads failed:`);
+    for (const f of failures.slice(0, 20)) console.error(`  ${f}`);
+    process.exit(1);
+  }
+  reportTotal();
 }
 
 function reportTotal(): void {
