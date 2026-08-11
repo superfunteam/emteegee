@@ -539,3 +539,61 @@ describe('chooseAction always answers', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Root exactness
+// ---------------------------------------------------------------------------
+
+/**
+ * Regression: the root used to search children with a narrowed (alpha, Infinity)
+ * window and compare the results as if they were exact scores.
+ *
+ * `search` is fail-soft — a child that cuts returns a bound, not a score — so a bound
+ * landing exactly on alpha read as a tie, and the commitment tie-break resolved it
+ * toward attacking. The Archmage played moves its own model rated worse, and which
+ * move it picked depended on the order `legalActions` enumerated the opponent's
+ * blockers. An evaluation function cannot be order-dependent, so the flip was pure
+ * pruning artifact.
+ */
+describe('the Archmage answer does not depend on enumeration order', () => {
+  function oneAttackerInto(blockers: Array<{ power: number; toughness: number }>): GameState {
+    return atLife(
+      withLibraries(
+        battlefield({
+          you: [{ power: 2, toughness: 2 }],
+          them: blockers,
+        }),
+      ),
+      20,
+      20,
+    );
+  }
+
+  it('gives the same answer whichever way the blockers are listed', () => {
+    const forward = chooseAction(oneAttackerInto([
+      { power: 2, toughness: 2 },
+      { power: 5, toughness: 5 },
+    ]), 'archmage');
+
+    const reversed = chooseAction(oneAttackerInto([
+      { power: 5, toughness: 5 },
+      { power: 2, toughness: 2 },
+    ]), 'archmage');
+
+    const describe_ = (a: typeof forward): string =>
+      a.kind === 'declareAttackers' ? [...a.attackers].sort().join(',') : a.kind;
+
+    expect(describe_(forward)).toBe(describe_(reversed));
+  });
+
+  it('declines an attack that walks into a strictly better blocker', () => {
+    // A 2/2 attacking into an untapped 5/5 and an untapped 2/2 loses the creature
+    // either way, so declining is correct at two ply.
+    const action = chooseAction(oneAttackerInto([
+      { power: 2, toughness: 2 },
+      { power: 5, toughness: 5 },
+    ]), 'archmage');
+
+    expect(action.kind === 'declareAttackers' && action.attackers).toEqual([]);
+  });
+});

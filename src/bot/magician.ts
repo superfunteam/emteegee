@@ -632,7 +632,18 @@ function chooseArchmage(state: GameState, me: PlayerId, candidates: readonly Act
 
       let value: number;
       try {
-        value = search(next, me, depth - 1, alpha, Infinity, deadline);
+        // Full window at the root, deliberately.
+        //
+        // Narrowing to (alpha, Infinity) prunes more, but `search` is fail-soft: a
+        // child that cuts returns a BOUND, not a score. Those bounds were then
+        // compared as if exact, and a bound landing exactly on alpha read as a tie —
+        // which the commitment tie-break resolved toward attacking. The Archmage
+        // played moves its own model rated worse, and its answer depended on the
+        // order `legalActions` happened to enumerate the opponent's blocks.
+        //
+        // Depth is two and the candidate list is bounded, so exactness is cheap here
+        // and the deadline above is what actually bounds the work.
+        value = search(next, me, depth - 1, -Infinity, Infinity, deadline);
       } catch (err) {
         if (err !== BUDGET_EXPIRED) throw err;
         expired = true;
