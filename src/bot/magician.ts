@@ -31,13 +31,14 @@
  * ## Scoring a candidate
  *
  * A candidate is scored by `reduce()`-ing it and evaluating the position that
- * comes out — with one necessary continuation, {@link settle}: while something
- * is still on the stack, the line is carried forward by `pass` actions until it
- * resolves. Without that, casting a spell is *always* a loss on the board — a
- * card leaves your hand and lands tap, and the spell has not done anything yet —
- * and the bot would never cast anything. Settling models an opponent who does
- * not respond, which is the honest assumption at one ply; the Archmage's second
- * ply models the reply for real.
+ * comes out — with one necessary continuation, {@link settle}: while a spell is
+ * still on the stack, or combat damage is still pending, the line is carried
+ * forward by `pass` actions until it has finished happening. Without that,
+ * casting a spell is *always* a loss on the board — a card leaves your hand and
+ * lands tap, and the spell has not done anything yet — and a block would never
+ * be worth making. Settling models an opponent who does not respond, which is
+ * the honest assumption at one ply; the Archmage's second ply models the reply
+ * for real.
  *
  * ## What one ply can and cannot see
  *
@@ -179,29 +180,46 @@ function safeReduce(state: GameState, action: Action): GameState | null {
 }
 
 /**
- * Carry a line forward until nothing is waiting on the stack.
+ * Has this position finished happening?
  *
- * A spell that has been cast has not done anything yet: it sits on the stack,
- * its cost already paid. Evaluating there prices a Lightning Bolt as "a card
- * gone and a land tapped", so a bot that scored positions without settling would
- * cast nothing, ever. Passing until the stack empties is what lets the score of
- * "cast this" be the score of what casting it *does*.
+ * Two things are still in flight and make a score meaningless:
+ *
+ * - **Something on the stack.** A spell that has been cast has not done anything
+ *   yet; it is sitting there with its cost already paid. Evaluating here prices
+ *   a Lightning Bolt as "a card gone and a land tapped", and a bot that scored
+ *   positions this way would never cast anything, ever.
+ * - **Combat damage not yet dealt.** `advancePhase` stops at the first-strike
+ *   step whenever *either* player holds an instant, so a bot with a trick in
+ *   hand would evaluate every attack and every block as though the creatures had
+ *   simply stood there — blocks that trade would look identical to no blocks at
+ *   all, and a lethal attack would not read as lethal.
+ *
+ * The declare-blockers step is deliberately **not** on that list. Blocks are a
+ * real decision by a real player, and passing through them would score every
+ * attack as though it were unblocked — which would report a lethal attack into a
+ * wall of blockers as a win. That gap is what the Archmage's second ply is for.
+ */
+function isQuiet(state: GameState): boolean {
+  if (state.winner !== null) return true;
+  if (state.stack.length > 0) return false;
+  return state.phase !== 'firstStrikeDamage';
+}
+
+/**
+ * Carry a line forward, by passing, until it has finished happening.
  *
  * The passes come from `legalActions`, like everything else, and are applied to
- * whichever player holds priority — so this models both players declining to
- * respond. That is the standard null-move assumption, and it is the assumption a
- * one-ply search is entitled to; the Archmage's second ply replaces it with a
- * real reply.
+ * whoever holds priority — so this models both players declining to respond.
+ * That is the standard null-move assumption and the one a one-ply search is
+ * entitled to; the Archmage's second ply replaces it with a real reply.
  *
- * Bounded at {@link SETTLE_LIMIT}: two passes resolve one object, the stack caps
- * at three, and phase changes are never reached because the loop stops the
- * moment the stack is empty.
+ * Bounded at {@link SETTLE_LIMIT}: two passes resolve one stack object, the
+ * stack caps at three, and the damage step is two more.
  */
 function settle(state: GameState): GameState {
   let next = state;
   for (let step = 0; step < SETTLE_LIMIT; step++) {
-    if (next.winner !== null) return next;
-    if (next.stack.length === 0) return next;
+    if (isQuiet(next)) return next;
 
     const passing = legalActions(next).find((action) => action.kind === 'pass');
     if (!passing) return next;

@@ -27,7 +27,7 @@
  */
 
 import type { TargetFilter } from '../../engine/types';
-import { ANY_CREATURE, ATTACKING_CREATURE, pumpAbility, tribe, type BehaviorTable } from './shared';
+import { ATTACKING_CREATURE, THEIR_CREATURE, pumpAbility, tribe, type BehaviorTable } from './shared';
 import { GOBLIN_TOKEN } from '../tokens';
 
 /** Torch Fiend's ability points here. Nothing in the pool matches it today. */
@@ -163,8 +163,12 @@ export const RED: BehaviorTable = {
     triggers: [
       {
         on: 'onDies',
-        effects: [{ kind: 'damage', target: ANY_CREATURE, amount: 2 }],
-        targets: [ANY_CREATURE],
+        effects: [{ kind: 'damage', target: THEIR_CREATURE, amount: 2 }],
+        // The real card says "target creature", so pointing it at your own is legal —
+        // but nothing can ask which one you meant, so the engine picks. Narrowing the
+        // filter here makes the choice right by construction rather than relying on
+        // the tie-break in actions.ts.
+        targets: [THEIR_CREATURE],
       },
     ],
   },
