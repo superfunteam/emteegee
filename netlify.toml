@@ -1,0 +1,97 @@
+# Netlify deployment.
+#
+# The game is a static bundle with no server, no API, and no runtime network access:
+# card data, art and sound are all committed, so a build here never touches Scryfall
+# and a player never waits on anything but the CDN.
+#
+# That is what makes the Content-Security-Policy below realistic rather than
+# aspirational — 'self' is genuinely the only origin this page needs.
+
+[build]
+  command = "npm test && npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Vite 6 needs 18+. Pinned to match the version the project is developed against, so
+  # a Netlify image upgrade cannot change the build under us.
+  NODE_VERSION = "22"
+  # The bundle is committed in full; nothing here should ever reach the network.
+  CI = "true"
+
+# The deploy runs the suite before it builds. `npm run build` is already
+# `tsc --noEmit && vite build`, so a type error cannot ship — and putting the 600-odd
+# tests in front of it means a rules regression cannot either. They are seeded and
+# deterministic and cost about ten seconds, which is the cheapest insurance available
+# to a project whose engine decides whether a card does what it says.
+
+# ---------------------------------------------------------------------------
+# Caching
+# ---------------------------------------------------------------------------
+
+# Vite fingerprints these, so the filename changes whenever the contents do.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Card art and sound are NOT fingerprinted — `art/serra-angel-art.jpg` is a stable
+# path whose contents could change if the pool is rebuilt. A week is long enough that
+# a returning player re-downloads almost nothing of the 8.6MB, and short enough that a
+# regenerated bundle reaches them without a hard refresh. Netlify's ETags make the
+# revalidation itself nearly free.
+[[headers]]
+  for = "/art/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/sfx/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+
+# The entry point must never be cached, or a deploy would not reach anyone holding a
+# stale copy — it is the file that names the fingerprinted bundles.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Everything the page loads is same-origin. The one concession is inline *style
+    # attributes*: a handful of overlay panels set `style="..."` directly, which
+    # style-src 'unsafe-inline' covers. There are no inline scripts and no inline event
+    # handlers — verified against the built HTML — so script-src stays strict.
+    Content-Security-Policy = """
+      default-src 'self';
+      script-src 'self';
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data:;
+      media-src 'self';
+      font-src 'self';
+      connect-src 'self';
+      form-action 'none';
+      frame-ancestors 'none';
+      base-uri 'self';
+      object-src 'none'
+    """
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "DENY"
+    # The game asks for nothing. Vibration is not gated by Permissions-Policy, so
+    # haptics still work.
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
+# ---------------------------------------------------------------------------
+# Routing
+# ---------------------------------------------------------------------------
+#
+# There is deliberately NO SPA catch-all redirect. The game swaps screens in JavaScript
+# without touching the URL, so there are no client-side routes to rescue — and a
+# catch-all would turn a genuinely missing art file into a 200 serving index.html,
+# which is how a broken image bundle ships unnoticed. A real 404 is more useful here.

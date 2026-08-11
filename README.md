@@ -34,14 +34,49 @@ line explains flying, and then never again.
 
 ```bash
 npm install
-npm run pool     # resolve the card pool from Scryfall, validate it
-npm run art      # download and downscale the card art
-npm run sfx      # assemble the sound kit
 npm run dev
 ```
 
+That is the whole setup. The card data, the art and the sound kit are all committed, so
+a fresh clone plays immediately and never touches the network — please do not re-run the
+Scryfall pipeline just to get started.
+
 Open the printed URL on your phone (same wifi), or resize a desktop browser to phone
-width. `npm run build` produces a static bundle that will run from any file host.
+width.
+
+The asset pipeline is only for changing what is in the game:
+
+```bash
+npm run pool     # re-resolve the card pool from Scryfall and re-validate it
+npm run art      # download and downscale any art the pool is missing
+npm run sfx      # reassemble the sound kit from the Kenney packs
+```
+
+## Deploying
+
+The whole thing is static and self-contained: card data, art and sound are committed,
+so a build never touches Scryfall and a player never waits on anything but the CDN.
+
+Point Netlify at the repository and it will pick up `netlify.toml` — build command,
+publish directory, Node version, cache headers and a strict Content-Security-Policy are
+all configured. Nothing else to set up, and no environment variables.
+
+```bash
+npm test && npm run build   # what Netlify runs; dist/ is the deployable artifact
+```
+
+The deploy runs the test suite before building, and `npm run build` typechecks before
+bundling, so neither a rules regression nor a type error can ship.
+
+Two decisions worth knowing if you change the config:
+
+- **There is no SPA catch-all redirect.** The game swaps screens in JavaScript without
+  touching the URL, so there are no client-side routes to rescue — and a catch-all
+  would turn a missing art file into a 200 serving `index.html`, which is how a broken
+  bundle ships unnoticed.
+- **The CSP is `'self'` and means it.** No inline scripts, no external origins. The one
+  concession is `style-src 'unsafe-inline'`, because a few overlay panels set style
+  attributes directly. It was verified against the built bundle rather than assumed.
 
 ## How it is built
 
