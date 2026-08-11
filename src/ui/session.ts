@@ -71,6 +71,18 @@ export class Session {
     if (this.blocked()) return;
     sound.unlock();
 
+    // Tapping the card you are already aiming means "never mind". Restarting
+    // targeting instead would leave the only exit as a separate Cancel button, and a
+    // player who taps the card again expects to put it back down.
+    if (this.mode.kind === 'targeting') {
+      const sameCard = this.mode.card === card;
+      this.mode = { kind: 'idle' };
+      this.hint = null;
+      sound.play('blip', { gain: 0.5 });
+      this.render();
+      if (sameCard) return;
+    }
+
     const options = legalActions(this.state).filter(
       a => (a.kind === 'castSpell' || a.kind === 'playLand') && a.card === card,
     );
@@ -116,6 +128,23 @@ export class Session {
         this.zoom(card);
         return;
     }
+  }
+
+  /** A player's rail, tapped while a spell is looking for a target. */
+  railTap(player: PlayerId): void {
+    if (this.blocked()) return;
+    if (this.mode.kind !== 'targeting') return;
+
+    const source = this.mode.card;
+    const wanted: TargetSelection = player === 0 ? 'player0' : 'player1';
+    const match = legalActions(this.state).find(
+      a => a.kind === 'castSpell' && a.card === source && a.targets === wanted,
+    );
+    if (!match) { sound.play('illegal', { gain: 0.5 }); return; }
+
+    this.mode = { kind: 'idle' };
+    this.hint = null;
+    void this.dispatch(match);
   }
 
   /** Swipe up on your own creature during declare attackers: attack with just it. */
@@ -365,6 +394,7 @@ export class Session {
       you: YOU,
       selected: this.selectedCards(),
       targetable: this.targetableCards(),
+      targetablePlayers: this.targetablePlayers(),
       blockingPairs: this.mode.kind === 'blocking' ? this.mode.pairs : new Map(),
       actLabel: this.actLabel(),
       actEnabled: this.actEnabled(),
@@ -381,6 +411,23 @@ export class Session {
       return set;
     }
     return new Set();
+  }
+
+  /**
+   * Players a spell can currently point at. `TargetSelection` models a player choice
+   * as 'player0' / 'player1' rather than as a CardId, so this is a separate set from
+   * the targetable permanents.
+   */
+  private targetablePlayers(): Set<PlayerId> {
+    if (this.mode.kind !== 'targeting') return new Set();
+    const source = this.mode.card;
+    const players = new Set<PlayerId>();
+    for (const action of legalActions(this.state)) {
+      if (action.kind !== 'castSpell' || action.card !== source) continue;
+      if (action.targets === 'player0') players.add(0);
+      if (action.targets === 'player1') players.add(1);
+    }
+    return players;
   }
 
   private targetableCards(): Set<CardId> {

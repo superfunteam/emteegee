@@ -169,15 +169,23 @@
 
 /* ---------- battlefield ---------- */
 
+/*
+ * Creatures sit toward the centre line rather than floating in the middle of their
+ * half. Combat happens between the two boards, so pulling both toward the middle
+ * strip puts the things that fight next to each other and leaves the slack at the
+ * outer edges, where nothing needs it.
+ */
 .board {
   flex: 1;
   min-height: 0;
   padding: 9px 10px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 7px;
 }
+
+.board--opponent { justify-content: flex-end; padding-bottom: 14px; }
+.board--you { justify-content: flex-start; padding-top: 14px; }
 
 .board__row {
   display: flex;
@@ -188,10 +196,19 @@
 
 /* ---------- creature tile ---------- */
 
+/*
+ * Tiles are sized from the board, not fixed.
+ *
+ * Stripping the card frame is only worth doing if the art actually gets the space it
+ * buys, so a lone creature is enormous and they step down only as the board fills.
+ * `--tile-w` is set per board by table.ts from the creature count and the real
+ * available width; everything else here derives from it, so there is one number to
+ * reason about rather than a table of magic pixel values.
+ */
 .tile {
-  width: 74px;
+  width: var(--tile-w, 74px);
   flex: none;
-  border-radius: 9px;
+  border-radius: calc(var(--tile-w, 74px) * 0.09);
   overflow: hidden;
   position: relative;
   background: var(--zone);
@@ -201,21 +218,33 @@
   font: inherit;
   color: inherit;
   text-align: left;
-  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1), box-shadow 0.2s, opacity 0.2s;
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1),
+    box-shadow 0.2s,
+    opacity 0.2s,
+    width 0.28s cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
+
+/* Everything that overlays the art anchors to the art, so a badge cannot drift when
+   the tile resizes. */
+.tile__frame {
+  position: relative;
+  display: block;
 }
 
 .tile__art {
   width: 100%;
-  height: 56px;
+  /* art_crop is roughly 626x457. Matching it means no crop and no letterboxing. */
+  aspect-ratio: 626 / 457;
   object-fit: cover;
   display: block;
   background: var(--edge);
 }
 
 .tile__name {
-  font-size: 8.5px;
+  font-size: clamp(7.5px, calc(var(--tile-w, 74px) * 0.115), 13px);
   line-height: 1.25;
-  padding: 3px 4px 4px;
+  padding: 3px 5px 4px;
   color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
@@ -226,13 +255,13 @@
 .tile__pt {
   position: absolute;
   right: 3px;
-  top: 41px;
+  bottom: 3px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: clamp(9px, calc(var(--tile-w, 74px) * 0.145), 17px);
   font-weight: 700;
   background: var(--badge);
   color: var(--badge-ink);
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 4px;
   border: 1px solid rgb(255 255 255 / 0.14);
   font-variant-numeric: tabular-nums;
@@ -251,14 +280,14 @@
 }
 
 .tile__keywords i {
-  width: 14px;
-  height: 14px;
+  width: clamp(14px, calc(var(--tile-w, 74px) * 0.2), 26px);
+  height: clamp(14px, calc(var(--tile-w, 74px) * 0.2), 26px);
   border-radius: 3px;
   background: var(--badge);
   border: 1px solid rgb(255 255 255 / 0.16);
   font-style: normal;
-  font-size: 9px;
-  line-height: 12px;
+  font-size: clamp(9px, calc(var(--tile-w, 74px) * 0.13), 16px);
+  line-height: clamp(12px, calc(var(--tile-w, 74px) * 0.18), 24px);
   text-align: center;
   color: var(--acc);
 }
@@ -266,13 +295,13 @@
 .tile__counters {
   position: absolute;
   left: 3px;
-  top: 41px;
+  bottom: 3px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: clamp(9px, calc(var(--tile-w, 74px) * 0.13), 15px);
   font-weight: 700;
   background: var(--life-gain);
   color: #06120a;
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 4px;
 }
 
@@ -295,14 +324,6 @@
   0%, 100% { box-shadow: 0 0 0 2px var(--acc); }
   50% { box-shadow: 0 0 0 4px var(--acc); }
 }
-
-/* A full board steps the tiles down rather than letting them overflow. Five per side
-   is where 74px stops fitting two rows comfortably at 390px. */
-.board--dense .tile { width: 56px; }
-.board--dense .tile__art { height: 42px; }
-.board--dense .tile__pt { top: 29px; font-size: 9px; }
-.board--dense .tile__counters { top: 29px; font-size: 8px; }
-.board--dense .tile__name { font-size: 7.5px; }
 
 /* ---------- middle strip ---------- */
 
@@ -445,10 +466,12 @@
 
 /* ---------- primary action button ---------- */
 
+/* Clears the hand AND the player rail: the button must never sit on top of your own
+   life total, which is the number you check most often. */
 .act {
   position: absolute;
   right: 12px;
-  bottom: calc(126px + env(safe-area-inset-bottom));
+  bottom: calc(190px + env(safe-area-inset-bottom));
   z-index: 25;
   min-height: 44px;
   padding: 0 18px;
@@ -570,4 +593,18 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* A rail lights up while a spell can point at that player. The whole bar is the tap
+   target rather than a small hitbox, because "burn to the face" should be as easy to
+   aim as burn at a creature. */
+.rail--targetable {
+  box-shadow: inset 0 0 0 2px var(--acc);
+  cursor: pointer;
+  animation: pulse-rail 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-rail {
+  0%, 100% { box-shadow: inset 0 0 0 2px var(--acc); }
+  50% { box-shadow: inset 0 0 0 4px var(--acc); }
 }

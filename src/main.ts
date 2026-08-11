@@ -13,7 +13,7 @@ import type { Tier } from './bot/magician';
 import { createTable } from './ui/table';
 import { Session, YOU, THEM } from './ui/session';
 import { attachGestures } from './ui/gestures';
-import { listenForZoom, showCard, showZone, closeOverlay } from './ui/overlay';
+import { listenForZoom, showCard, showZone, showLands as showLandsOverlay, closeOverlay } from './ui/overlay';
 import {
   titleScreen, deckScreen, resultScreen, settingsScreen,
   applySkin, loadSkin, type Skin,
@@ -67,6 +67,7 @@ function startMatch(deck: Deck, tier: Tier): void {
 
   const table = createTable({
     onTileTap: card => activeSession?.tileTap(card),
+    onRailTap: player => activeSession?.railTap(player),
     onHandTap: card => activeSession?.handTap(card),
     onManaTap: player => showLands(player),
     onZoneTap: (zone, player) => {
@@ -86,7 +87,7 @@ function startMatch(deck: Deck, tier: Tier): void {
     if (!activeSession) return;
     // Long-pressing the mana row opens the real lands, which is where the abstraction
     // gives way: the gems are a summary, these are the cards.
-    showZone(table.root, activeSession.gameState, 'graveyard', player);
+    showLandsOverlay(table.root, activeSession.gameState, player);
   }
 
   show(table.root);

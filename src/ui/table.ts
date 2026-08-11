@@ -54,6 +54,8 @@ const RAIL_PHASES = ['untap', 'upkeep', 'draw', 'main1', 'declareAttackers', 'ma
 
 export interface TableCallbacks {
   onTileTap(card: CardId): void;
+  /** A player's rail, tapped as a spell target. Burn to the face lives here. */
+  onRailTap(player: PlayerId): void;
   onHandTap(card: CardId): void;
   onManaTap(player: PlayerId): void;
   onZoneTap(zone: 'graveyard' | 'exile', player: PlayerId): void;
@@ -73,6 +75,11 @@ export interface UiState {
   you: PlayerId;
   selected: Set<CardId>;
   targetable: Set<CardId>;
+  /**
+   * Players a spell may currently point at. Without this the face is unreachable and
+   * "deals N damage to any target" is only half a card.
+   */
+  targetablePlayers: Set<PlayerId>;
   blockingPairs: Map<CardId, CardId>;
   actLabel: string;
   actEnabled: boolean;
@@ -83,9 +90,9 @@ export interface UiState {
 export function createTable(callbacks: TableCallbacks): TableView {
   const oppRail = el('div.rail');
   const oppMana = el('div.mana');
-  const oppBoard = el('div.board');
+  const oppBoard = el('div.board.board--opponent');
   const mid = el('div.mid');
-  const youBoard = el('div.board');
+  const youBoard = el('div.board.board--you');
   const youMana = el('div.mana.mana--you');
   const youRail = el('div.rail.rail--you');
   const hand = el('div.hand');
@@ -106,12 +113,15 @@ export function createTable(callbacks: TableCallbacks): TableView {
     const them = opponentOf(ui.you);
     const actions = legalActions(state);
 
-    patchRail(oppRail, state, them, false);
-    patchRail(youRail, state, ui.you, true);
+    patchRail(oppRail, state, them, false, ui, callbacks);
+    patchRail(youRail, state, ui.you, true, ui, callbacks);
     patchMana(oppMana, state, them, false, callbacks);
     patchMana(youMana, state, ui.you, true, callbacks);
     patchBoard(oppBoard, state, them, ui, tiles, callbacks);
     patchBoard(youBoard, state, ui.you, ui, tiles, callbacks);
+    // Sized after both boards exist, so each measures the height it actually got.
+    sizeTiles(oppBoard);
+    sizeTiles(youBoard);
     patchMid(mid, state, ui.you, callbacks);
     patchHand(hand, state, ui, handCards, actions, callbacks);
     patchBacks(backs, state, them);
@@ -140,9 +150,15 @@ export function createTable(callbacks: TableCallbacks): TableView {
     root.append(hintNode);
   }
 
+  let lastState: GameState | null = null;
+  let lastUi: UiState | null = null;
+  const repatch = (): void => { if (lastState && lastUi) patch(lastState, lastUi); };
+  window.addEventListener('resize', repatch);
+  window.addEventListener('orientationchange', () => setTimeout(repatch, 150));
+
   return {
     root,
-    patch,
+    patch(state: GameState, ui: UiState) { lastState = state; lastUi = ui; patch(state, ui); },
     tileFor: card => tiles.get(card),
     ribbon: setRibbon,
     floaty(text, kind, anchor) {
@@ -158,7 +174,10 @@ export function createTable(callbacks: TableCallbacks): TableView {
 
 /* ------------------------------------------------------------------ rails */
 
-function patchRail(node: HTMLElement, state: GameState, player: PlayerId, isYou: boolean): void {
+function patchRail(
+  node: HTMLElement, state: GameState, player: PlayerId, isYou: boolean,
+  ui: UiState, callbacks: TableCallbacks,
+): void {
   const p = state.players[player];
   const active = state.active === player;
   node.classList.toggle('rail--active', active);
@@ -195,6 +214,17 @@ function patchRail(node: HTMLElement, state: GameState, player: PlayerId, isYou:
   node.querySelector('.js-lib')!.textContent = String(p.library.length);
   node.querySelector('.js-status')!.textContent =
     state.winner !== null ? '' : active ? (isYou ? 'your turn' : 'thinking…') : '';
+
+  // A rail becomes a tap target only while a spell can actually point at it, so the
+  // whole bar lights up rather than asking the player to find a small hitbox.
+  const targetable = ui.targetablePlayers.has(player);
+  node.classList.toggle('rail--targetable', targetable);
+  if (targetable && !node.dataset.wired) {
+    node.dataset.wired = 'yes';
+    node.addEventListener('click', () => {
+      if (node.classList.contains('rail--targetable')) callbacks.onRailTap(player);
+    });
+  }
 }
 
 /* ------------------------------------------------------------------- mana */
@@ -241,7 +271,10 @@ function patchBoard(
 ): void {
   const creatures = cardsIn(state, player, 'battlefield').filter(id => isCreature(state, id));
 
-  node.classList.toggle('board--dense', creatures.length >= 5);
+  // An empty board should not hold half the screen. Weight is deliberately compressed
+  // rather than proportional: a board of four against a board of one would otherwise
+  // squeeze the lone creature into a sliver.
+  node.style.flexGrow = String(Math.min(2.2, 0.6 + creatures.length * 0.4));
   node.setAttribute('aria-label',
     `${player === ui.you ? 'Your' : "The Magician's"} battlefield, ${creatures.length} creatures`);
 
@@ -263,6 +296,9 @@ function patchBoard(
     if (!tile) {
       tile = buildTile(id, callbacks);
       tile.classList.add('tile--entering');
+      // Clear it once it has played. Left on, the summon animation replays every time
+      // the node is re-inserted to keep the row in order, which reads as a flicker.
+      tile.addEventListener('animationend', () => tile!.classList.remove('tile--entering'), { once: true });
       tiles.set(id, tile);
     }
     if (row!.children[index] !== tile) row!.insertBefore(tile, row!.children[index] ?? null);
@@ -270,11 +306,55 @@ function patchBoard(
   });
 }
 
+/**
+ * How wide a creature tile should be, given how many share the board.
+ *
+ * The rule the whole layout hangs on: a tile is as large as it can be without either
+ * row overflowing or the two boards colliding. One creature gets an enormous portrait;
+ * they shrink only when they have to, and never below a 44px tap target.
+ *
+ * Both real constraints are measured rather than assumed, because the same board is
+ * 320px wide on a small phone and 430px on a large one.
+ */
+const TILE_MIN = 46;
+const TILE_MAX = 190;
+const GAP = 6;
+const NAME_ROW = 20;
+const ART_RATIO = 626 / 457;
+
+function sizeTiles(board: HTMLElement): void {
+  const count = board.querySelectorAll('.tile').length;
+  if (count === 0) return;
+
+  const style = getComputedStyle(board);
+  const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  const availableW = Math.max(240, board.clientWidth - padX);
+  const availableH = Math.max(90, board.clientHeight - padY);
+
+  // Try one row, then two, then three, and keep the arrangement that lets a tile be
+  // widest. More rows means a narrower height budget but more horizontal room.
+  let best = TILE_MIN;
+  for (const rows of [1, 2, 3]) {
+    const perRow = Math.ceil(count / rows);
+    const byWidth = (availableW - GAP * (perRow - 1)) / perRow;
+    const tileH = (availableH - GAP * (rows - 1)) / rows;
+    const byHeight = (tileH - NAME_ROW) * ART_RATIO;
+    const fits = Math.min(byWidth, byHeight);
+    if (fits > best) best = fits;
+  }
+
+  const width = Math.round(Math.max(TILE_MIN, Math.min(TILE_MAX, best)));
+  board.style.setProperty('--tile-w', `${width}px`);
+}
+
 function buildTile(id: CardId, callbacks: TableCallbacks): HTMLElement {
   const tile = el('button.tile', { type: 'button', dataCard: id },
-    el('img.tile__art', { alt: '' }),
-    el('div.tile__keywords', { 'aria-hidden': 'true' }),
-    el('div.tile__pt', { 'aria-hidden': 'true' }),
+    el('div.tile__frame', {},
+      el('img.tile__art', { alt: '' }),
+      el('div.tile__keywords', { 'aria-hidden': 'true' }),
+      el('div.tile__pt', { 'aria-hidden': 'true' }),
+    ),
     el('div.tile__name'),
   );
   tile.addEventListener('click', () => callbacks.onTileTap(id));
@@ -323,7 +403,10 @@ function updateTile(tile: HTMLElement, state: GameState, id: CardId, ui: UiState
   const counters = card.counters['+1/+1'] - card.counters['-1/-1'];
   let badge = tile.querySelector<HTMLElement>('.tile__counters');
   if (counters > 0) {
-    if (!badge) { badge = el('div.tile__counters'); tile.append(badge); }
+    if (!badge) {
+      badge = el('div.tile__counters');
+      (tile.querySelector('.tile__frame') ?? tile).append(badge);
+    }
     badge.textContent = `+${counters}`;
   } else badge?.remove();
 

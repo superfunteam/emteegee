@@ -120,6 +120,54 @@ export function showZone(
   open(host, body, `${zone}, ${ids.length} cards`);
 }
 
+/**
+ * The real lands behind the mana row.
+ *
+ * The gems are a summary; this is where the abstraction gives way and shows the cards
+ * they stand for, tapped ones rotated exactly as they would be on a table.
+ */
+export function showLands(host: HTMLElement, state: GameState, player: PlayerId): void {
+  const lands = state.players[player].battlefield.filter(id =>
+    def(state, id).cardTypes.includes('land'));
+
+  const grid = el('div', {
+    style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:340px;'
+      + 'max-height:66vh;overflow-y:auto;padding:4px',
+  });
+
+  if (!lands.length) {
+    grid.append(el('div', {
+      style: 'grid-column:1/-1;text-align:center;color:var(--ink-3);font-size:13px;padding:28px 0',
+      text: 'No lands yet. Playing one is the most important thing you do each turn.',
+    }));
+  }
+
+  for (const id of lands) {
+    const tapped = inst(state, id).tapped;
+    grid.append(el<HTMLImageElement>('img', {
+      src: def(state, id).image,
+      alt: `${def(state, id).name}${tapped ? ', tapped' : ''}`,
+      style: 'width:100%;border-radius:5px;display:block;border:1px solid rgb(0 0 0 / .5);'
+        + (tapped ? 'filter:brightness(.55) saturate(.6);transform:rotate(6deg)' : ''),
+    }));
+  }
+
+  const untapped = lands.filter(id => !inst(state, id).tapped).length;
+  const body = el('div', { style: 'width:100%;display:flex;flex-direction:column;align-items:center;gap:10px' },
+    el('div', {
+      style: 'font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)',
+      text: `lands · ${untapped} of ${lands.length} untapped`,
+    }),
+    grid,
+    el('div', {
+      style: 'font-size:12px;color:var(--ink-3);max-width:300px;text-align:center;line-height:1.5',
+      text: 'Mana is spent for you when you cast. These are the lands it comes from.',
+    }),
+  );
+
+  open(host, body, `Lands, ${untapped} of ${lands.length} untapped`);
+}
+
 /** Mulligan decision, shown before the first turn. */
 export function showMulligan(
   host: HTMLElement, state: GameState, player: PlayerId,
