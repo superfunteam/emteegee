@@ -182,10 +182,17 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  /* Backstop. The sizing above should always fit, but a board must never be able to
-     spill over the mana row or the phase rail — a creature drawn on top of the phase
-     indicator is worse than a creature slightly clipped. */
-  overflow: hidden;
+  /*
+   * Visible, so a charging creature can cross the line instead of having its head
+   * clipped off at the board edge — the boards sit tight against the centre strip, so
+   * there is no room to charge inside their own box.
+   *
+   * Safe now in a way it would not have been earlier: tile sizing measures the real
+   * laid-out height and steps down until it fits, rather than predicting it, and a
+   * test asserts zero overflow across a whole game. `.table` still clips as the outer
+   * backstop, and `.mid` sits above the tiles so the phase rail is never covered.
+   */
+  overflow: visible;
 }
 
 .board--opponent { justify-content: flex-end; padding-bottom: 14px; }
@@ -314,8 +321,39 @@
 
 .tile--tapped { transform: rotate(9deg) scale(0.93); filter: saturate(0.5) brightness(0.72); }
 .tile--sick { opacity: 0.82; }
-.tile--attacking { transform: translateY(-16px) scale(1.05); box-shadow: 0 8px 18px var(--shade), 0 0 0 2px var(--danger); }
-.tile--blocking { box-shadow: 0 0 0 2px var(--acc); }
+/*
+ * Attacking creatures advance toward the centre line rather than twitching in place.
+ *
+ * The distance is set per tile by table.ts from the creature's real position, so a
+ * creature on the far edge travels further than one already near the middle and they
+ * all arrive at the same line — which is what makes it read as a charge rather than as
+ * every card nudging by the same amount.
+ *
+ * `--lunge` defaults to a small value so a tile that somehow misses its measurement
+ * still animates rather than sitting still.
+ */
+.tile--attacking {
+  transform: translateY(var(--lunge, -16px)) scale(1.06);
+  box-shadow: 0 10px 22px var(--shade), 0 0 0 2px var(--danger);
+  z-index: 12;
+}
+
+/* A blocker rises to meet the attack. Half the distance, so the two visibly meet in
+   the middle rather than one travelling all the way to the other. */
+.tile--blocking {
+  transform: translateY(var(--lunge, 8px)) scale(1.03);
+  box-shadow: 0 0 0 2px var(--acc);
+  z-index: 11;
+}
+
+/* The moment of contact. Brief and sharp — it lands on the damage beat. */
+.tile--clash { animation: clash 0.34s cubic-bezier(0.3, 0.9, 0.2, 1.2); }
+
+@keyframes clash {
+  0% { filter: none; }
+  22% { filter: brightness(1.6) saturate(1.3); }
+  100% { filter: none; }
+}
 .tile--selected { box-shadow: 0 0 0 3px var(--acc); transform: translateY(-6px); }
 .tile--targetable { box-shadow: 0 0 0 2px var(--acc); animation: pulse 1.4s ease-in-out infinite; }
 .tile--dying { transform: scale(0.7) rotate(-8deg); opacity: 0; }
@@ -335,6 +373,10 @@
 /* ---------- middle strip ---------- */
 
 .mid {
+  /* Above the creatures, so a charge slides *under* the centre line rather than
+     painting over the phase indicator. */
+  position: relative;
+  z-index: 20;
   flex: none;
   padding: 5px 11px;
   background: var(--felt-2);
@@ -932,4 +974,57 @@
 @keyframes pulse-rail {
   0%, 100% { box-shadow: inset 0 0 0 2px var(--acc); }
   50% { box-shadow: inset 0 0 0 4px var(--acc); }
+}
+
+/* Damage that would get through right now, sitting beside the life total while blocks
+   are still being assigned. Shown in the damage color and struck against the number it
+   is about to change, so the arithmetic is done for the player rather than by them. */
+.rail__incoming {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--danger);
+  margin-right: 2px;
+  animation: throb 1.1s ease-in-out infinite;
+}
+
+.rail__life--threatened { color: var(--danger); }
+
+@keyframes throb {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Whose turn it is, swept across the middle of the table and gone again.
+   Deliberately unmissable and deliberately brief: the handoff is the one moment the
+   player must not miss, and anything that lingers becomes something to tap past. */
+.banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 46%;
+  z-index: 45;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  pointer-events: none;
+  text-shadow: 0 2px 12px var(--shade);
+  animation: sweep 1.1s cubic-bezier(0.2, 0.9, 0.25, 1.1) forwards;
+}
+
+@keyframes sweep {
+  0% { opacity: 0; transform: translateX(-14px); }
+  18% { opacity: 1; transform: none; }
+  72% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateX(14px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner { animation: none; opacity: 1; }
 }

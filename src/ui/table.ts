@@ -64,6 +64,10 @@ export interface TableCallbacks {
 
 export interface TableView {
   root: HTMLElement;
+  /** A brief sweep naming whose turn it now is. */
+  banner(text: string): void;
+  /** The moment of contact, played on the damage beat. */
+  clash(card: CardId): void;
   patch(state: GameState, ui: UiState): void;
   tileFor(card: CardId): HTMLElement | undefined;
   floaty(text: string, kind: 'damage' | 'gain', anchor: 'you' | 'opponent'): void;
@@ -91,6 +95,14 @@ export interface UiState {
   actHidden: boolean;
   hint: string | null;
   speech: string | null;
+  /**
+   * Damage that would get through right now, previewed on the life total while blocks
+   * are being assigned.
+   *
+   * This is the moment a beginner is most lost, and a number that moves as they block
+   * teaches what blocking is for far better than a sentence about it does.
+   */
+  incoming: { player: PlayerId; amount: number } | null;
 }
 
 export function createTable(callbacks: TableCallbacks): TableView {
@@ -168,6 +180,24 @@ export function createTable(callbacks: TableCallbacks): TableView {
     patch(state: GameState, ui: UiState) { lastState = state; lastUi = ui; patch(state, ui); },
     tileFor: card => tiles.get(card),
     ribbon: setRibbon,
+    clash(card) {
+      const tile = tiles.get(card);
+      if (!tile) return;
+      tile.classList.remove('tile--clash');
+      // Force a reflow, or re-adding the class in the same frame does not restart the
+      // animation and a creature struck twice in one combat only flashes once.
+      void tile.offsetWidth;
+      tile.classList.add('tile--clash');
+      tile.addEventListener('animationend', () => tile.classList.remove('tile--clash'), { once: true });
+    },
+    banner(text) {
+      // Replaced rather than queued: if two turns pass faster than the sweep, the
+      // player wants the current one, not a backlog of stale announcements.
+      root.querySelector('.banner')?.remove();
+      const node = el('div.banner', { role: 'status', text });
+      root.append(node);
+      setTimeout(() => node.remove(), 1100);
+    },
     floaty(text, kind, anchor) {
       const node = el('div.floaty', { text });
       node.classList.add(`floaty--${kind}`);
@@ -215,7 +245,24 @@ function patchRail(
       setTimeout(() => life!.classList.remove(cls), 420);
     }
   }
-  life.setAttribute('aria-label', `${isYou ? 'Your' : "The Magician's"} life total: ${p.life}`);
+  const incoming = ui.incoming && ui.incoming.player === player ? ui.incoming.amount : 0;
+  let preview = node.querySelector<HTMLElement>('.rail__incoming');
+  if (incoming > 0) {
+    if (!preview) {
+      preview = el('div.rail__incoming', { 'aria-hidden': 'true' });
+      life.parentElement?.insertBefore(preview, life);
+    }
+    preview.textContent = `−${incoming}`;
+    life.classList.add('rail__life--threatened');
+  } else {
+    preview?.remove();
+    life.classList.remove('rail__life--threatened');
+  }
+
+  life.setAttribute('aria-label',
+    incoming > 0
+      ? `${isYou ? 'Your' : "The Magician's"} life total: ${p.life}, taking ${incoming} unless blocked, leaving ${p.life - incoming}`
+      : `${isYou ? 'Your' : "The Magician's"} life total: ${p.life}`);
 
   node.querySelector('.js-hand')!.textContent = String(p.hand.length);
   node.querySelector('.js-lib')!.textContent = String(p.library.length);
@@ -399,6 +446,7 @@ function updateTile(tile: HTMLElement, state: GameState, id: CardId, ui: UiState
   tile.classList.toggle('tile--tapped', card.tapped);
   tile.classList.toggle('tile--attacking', card.attacking);
   tile.classList.toggle('tile--blocking', card.blocking !== undefined);
+  setLunge(tile, card.attacking, card.blocking !== undefined, card.controller === ui.you);
   tile.classList.toggle('tile--selected', ui.selected.has(id));
   tile.classList.toggle('tile--targetable', ui.targetable.has(id));
   tile.classList.toggle('tile--sick',
@@ -415,6 +463,61 @@ function updateTile(tile: HTMLElement, state: GameState, id: CardId, ui: UiState
   } else badge?.remove();
 
   tile.setAttribute('aria-label', describeCreature(state, id, ui));
+}
+
+/**
+ * How far this creature travels when it charges.
+ *
+ * Measured from where the tile actually is to the middle strip, so a creature on the
+ * far edge of a wide board travels further than one already near the centre and they
+ * arrive together. A fixed offset makes every card nudge by the same amount, which
+ * reads as a twitch rather than as a charge.
+ *
+ * Blockers move half as far, so the two sides visibly meet in the middle instead of
+ * one crossing the whole gap.
+ */
+function setLunge(tile: HTMLElement, attacking: boolean, blocking: boolean, isYours: boolean): void {
+  if (!attacking && !blocking) {
+    tile.style.removeProperty('--lunge');
+    return;
+  }
+
+  const strip = tile.closest('.table')?.querySelector<HTMLElement>('.mid');
+  if (!strip) return;
+
+  // offsetTop, not getBoundingClientRect. A rect includes transforms, so a creature
+  // measured while its summon animation is still playing reports where it is being
+  // drawn rather than where it lives — and charges the wrong distance for the rest of
+  // combat. Layout offsets ignore transforms entirely.
+  const top = offsetWithin(tile);
+  const stripTop = offsetWithin(strip);
+
+  const gap = isYours
+    ? (stripTop + strip.offsetHeight) - top
+    : stripTop - (top + tile.offsetHeight);
+
+  // Blockers travel less far, so the two sides meet in the middle rather than one
+  // crossing the whole gap.
+  //
+  // No floor. A creature already sitting against the centre line has nowhere to go,
+  // and forcing a minimum shoves it under the phase rail where it mostly disappears.
+  // For those, the emphasis comes from the scale, the ring and the clash flash instead
+  // — which is honest, because a creature at the front of the board really has already
+  // arrived.
+  const travel = gap * (blocking ? 0.35 : 0.62);
+
+  tile.style.setProperty('--lunge', `${Math.round(travel)}px`);
+}
+
+/** Distance from the table's top edge, following offsetParent rather than transforms. */
+function offsetWithin(node: HTMLElement): number {
+  let y = 0;
+  let current: HTMLElement | null = node;
+  while (current && !current.classList.contains('table')) {
+    y += current.offsetTop;
+    current = current.offsetParent as HTMLElement | null;
+  }
+  return y;
 }
 
 /** What a screen reader hears. Includes the state a sighted player reads from the

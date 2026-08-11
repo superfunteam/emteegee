@@ -15,6 +15,14 @@
 export interface GestureCallbacks {
   onSwipeUp(card: string): void;
   onLongPress(target: HTMLElement): void;
+  /**
+   * A hand card held down rather than tapped.
+   *
+   * Tapping a hand card casts it, so without this there is no way to read a card
+   * before committing to it — a beginner would have to play a card to find out what
+   * it does, which is exactly backwards.
+   */
+  onHandPeek(card: string): void;
 }
 
 /** A swipe is deliberately strict: a sloppy scroll must not launch an attack. */
@@ -30,6 +38,7 @@ interface Tracking {
   startY: number;
   startedAt: number;
   card: string | null;
+  handCard: string | null;
   longPressTimer: number | null;
   longPressTarget: HTMLElement | null;
   fired: boolean;
@@ -49,6 +58,7 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
     const target = ev.target as HTMLElement;
     const tile = target.closest<HTMLElement>('.tile');
     const mana = target.closest<HTMLElement>('.mana--you');
+    const hand = target.closest<HTMLElement>('.hand__card');
 
     tracking = {
       pointerId: ev.pointerId,
@@ -56,19 +66,26 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
       startY: ev.clientY,
       startedAt: performance.now(),
       card: tile?.dataset.card ?? null,
+      handCard: hand?.dataset.card ?? null,
       longPressTimer: null,
       longPressTarget: mana,
       fired: false,
     };
 
-    if (mana) {
+    const held = mana
+      ? () => callbacks.onLongPress(mana)
+      : hand?.dataset.card
+        ? () => callbacks.onHandPeek(hand.dataset.card!)
+        : null;
+
+    if (held) {
       tracking.longPressTimer = window.setTimeout(() => {
         if (!tracking) return;
         tracking.fired = true;
         // Confirms the gesture landed, which matters when the result is a panel the
         // player has not seen before.
         if ('vibrate' in navigator) navigator.vibrate?.(12);
-        callbacks.onLongPress(mana);
+        held();
       }, LONG_PRESS_MS);
     }
   };
@@ -86,6 +103,15 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
     const dx = ev.clientX - tracking.startX;
     const dy = ev.clientY - tracking.startY;
     const elapsed = performance.now() - tracking.startedAt;
+
+    // A long press already did something; the click that follows must not also cast
+    // the card the player was only trying to read.
+    if (tracking.fired && tracking.handCard !== null) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      tracking = null;
+      return;
+    }
 
     const isSwipeUp =
       tracking.card !== null &&

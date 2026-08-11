@@ -13,7 +13,7 @@
  */
 
 import type { Action, CardId, GameEvent, GameState, PlayerId, TargetSelection } from '../engine/types';
-import { def, inst, isCreature, opponentOf } from '../engine/state';
+import { def, inst, isCreature, opponentOf, powerOf } from '../engine/state';
 import { inMulligan, legalActions } from '../engine/actions';
 import { reduce } from '../engine/rules';
 import { chooseAction, type Tier } from '../bot/magician';
@@ -477,9 +477,21 @@ export class Session {
 
   private renderEvent(event: GameEvent): void {
     switch (event.type) {
+      case 'PHASE':
+        // Only the untap step, which is the one phase that is unambiguously "a new
+        // turn started". Announcing every phase would make the banner wallpaper.
+        if (event.phase === 'untap') {
+          this.table.banner(event.active === YOU ? 'Your turn' : 'The Magician');
+        }
+        break;
       case 'DAMAGE':
+        if (!event.isPlayer) this.table.clash(event.target);
         if (event.isPlayer) {
           this.table.floaty(`−${event.amount}`, 'damage', event.target === YOU ? 'you' : 'opponent');
+          // Only damage YOU take, and only in proportion to it. A phone that buzzes
+          // at everything is a phone the player mutes, so this is reserved for the
+          // one event they most need to feel.
+          if (event.target === YOU) buzz(Math.min(60, 12 + event.amount * 6));
         }
         break;
       case 'LIFE_CHANGE':
@@ -516,6 +528,7 @@ export class Session {
       actHidden: this.prompt !== null,
       hint: this.hint,
       speech: this.speech,
+      incoming: this.incomingDamage(),
     };
   }
 
@@ -544,6 +557,32 @@ export class Session {
       if (action.targets === 'player1') players.add(1);
     }
     return players;
+  }
+
+  /**
+   * How much damage would get through if blocks were confirmed as they stand.
+   *
+   * Only while blocks are actually being assigned — outside that window the number
+   * would be a prediction about a decision nobody is making, which is noise.
+   *
+   * Counts an attacker as unblocked when nothing in the current assignment names it,
+   * so the figure falls as each blocker is committed and the player watches their own
+   * decision pay off. Trample is deliberately not modelled: the point here is to teach
+   * "blocking stops damage", and a number that only partly moves when you block
+   * teaches something muddier.
+   */
+  private incomingDamage(): { player: PlayerId; amount: number } | null {
+    if (this.mode.kind !== 'blocking') return null;
+
+    const blocked = new Set(this.mode.pairs.values());
+    let amount = 0;
+    for (const id of this.state.players[THEM].battlefield) {
+      const card = inst(this.state, id);
+      if (!card.attacking || blocked.has(id)) continue;
+      amount += powerOf(this.state, id);
+    }
+
+    return amount > 0 ? { player: YOU, amount } : null;
   }
 
   private targetableCards(): Set<CardId> {
@@ -621,6 +660,16 @@ export class Session {
 /* ------------------------------------------------------------- utilities */
 
 const pause = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+
+/** Haptics, where the device has them and the player has not asked for stillness. */
+function buzz(ms: number): void {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  try {
+    navigator.vibrate?.(ms);
+  } catch {
+    // Not supported, or blocked. Never worth surfacing.
+  }
+}
 
 function sameTargets(targets: TargetSelection, chosen: CardId[]): boolean {
   if (!Array.isArray(targets)) return chosen.length === 0;

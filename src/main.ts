@@ -100,6 +100,11 @@ function startMatch(deck: Deck, tier: Tier): void {
     // gives way: the gems are a summary, these are the cards you tap.
     onSwipeUp: card => session.swipeUp(card),
     onLongPress: () => session.manaTap(YOU),
+    // Holding a card in hand reads it. Tapping casts, so without this the only way to
+    // find out what a card does is to play it — which is exactly backwards for the
+    // audience this game is for. Reading is not a move, so it goes straight to the
+    // overlay: it works on the opponent's turn and mid-animation too.
+    onHandPeek: card => showCard(table.root, session.gameState, card),
   });
 
   session.start();
