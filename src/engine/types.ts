@@ -1,0 +1,333 @@
+/**
+ * The shared type contract.
+ *
+ * Every module imports its shapes from here and none redefine them. Adding a
+ * member to `Effect`, `Keyword`, or `TriggerEvent` widens what the game can
+ * express and is therefore a spec change, not an implementation detail.
+ */
+
+export type PlayerId = 0 | 1;
+
+/** Unique per instance on the table, e.g. "serra-angel#3". */
+export type CardId = string;
+/** Shared by every copy of a card, e.g. "serra-angel". */
+export type OracleId = string;
+
+export type Color = 'W' | 'U' | 'B' | 'R' | 'G';
+
+/** `C` is generic mana, which any color may pay. */
+export type ManaCost = Partial<Record<Color | 'C', number>>;
+
+export type Keyword =
+  | 'flying'
+  | 'reach'
+  | 'vigilance'
+  | 'haste'
+  | 'trample'
+  | 'first strike'
+  | 'double strike'
+  | 'deathtouch'
+  | 'lifelink'
+  | 'menace'
+  | 'defender'
+  | 'ward'
+  | 'hexproof'
+  | 'flash';
+
+export const ALL_KEYWORDS: readonly Keyword[] = [
+  'flying', 'reach', 'vigilance', 'haste', 'trample', 'first strike',
+  'double strike', 'deathtouch', 'lifelink', 'menace', 'defender',
+  'ward', 'hexproof', 'flash',
+];
+
+export type CardType = 'creature' | 'instant' | 'sorcery' | 'enchantment' | 'artifact' | 'land';
+
+export type Zone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'stack';
+
+export type Phase =
+  | 'untap'
+  | 'upkeep'
+  | 'draw'
+  | 'main1'
+  | 'beginCombat'
+  | 'declareAttackers'
+  | 'declareBlockers'
+  | 'firstStrikeDamage'
+  | 'combatDamage'
+  | 'endCombat'
+  | 'main2'
+  | 'end'
+  | 'cleanup';
+
+export const PHASE_ORDER: readonly Phase[] = [
+  'untap', 'upkeep', 'draw', 'main1', 'beginCombat', 'declareAttackers',
+  'declareBlockers', 'firstStrikeDamage', 'combatDamage', 'endCombat',
+  'main2', 'end', 'cleanup',
+];
+
+/** The stack may never hold more than this many objects. See spec 3. */
+export const STACK_CAP = 3;
+
+export const STARTING_LIFE = 20;
+export const STARTING_HAND = 7;
+export const MAX_MULLIGANS = 3;
+
+/**
+ * Where an effect may point. Legality is resolved by actions.ts; the UI only
+ * ever renders what `legalActions` already declared targetable.
+ */
+export interface TargetFilter {
+  zone?: Zone;
+  controller?: 'you' | 'opponent' | 'any';
+  cardTypes?: CardType[];
+  subtypes?: string[];
+  colors?: Color[];
+  minPower?: number;
+  maxPower?: number;
+  tapped?: boolean;
+  attacking?: boolean;
+  blocking?: boolean;
+}
+
+export type Duration = 'endOfTurn' | 'permanent';
+
+/** Who or what an effect resolves against. */
+export type EffectTarget = TargetFilter | 'self' | 'player';
+
+/**
+ * The closed effect vocabulary. `effects.ts` switches exhaustively over this
+ * union, so adding a member without handling it fails to compile.
+ */
+export type Effect =
+  | { kind: 'damage'; target: EffectTarget; amount: number }
+  | { kind: 'destroy'; target: TargetFilter }
+  | { kind: 'exile'; target: TargetFilter }
+  | { kind: 'draw'; player: 'you' | 'opponent'; count: number }
+  | { kind: 'discard'; player: 'you' | 'opponent'; count: number }
+  | { kind: 'gainLife'; player: 'you' | 'opponent'; amount: number }
+  | { kind: 'loseLife'; player: 'you' | 'opponent'; amount: number }
+  | { kind: 'pump'; target: EffectTarget; power: number; toughness: number; duration: Duration }
+  | { kind: 'grantKeyword'; target: EffectTarget; keyword: Keyword; duration: Duration }
+  | { kind: 'tap'; target: TargetFilter }
+  | { kind: 'untap'; target: TargetFilter }
+  | { kind: 'addCounter'; target: EffectTarget; counter: CounterKind; count: number }
+  | { kind: 'createToken'; token: TokenSpec; count: number }
+  | { kind: 'scry'; count: number }
+  | { kind: 'addMana'; colors: Color[] }
+  | { kind: 'returnToHand'; target: TargetFilter }
+  | { kind: 'sacrifice'; target: TargetFilter }
+  | { kind: 'counterSpell' };
+
+export type CounterKind = '+1/+1' | '-1/-1';
+
+export interface TokenSpec {
+  name: string;
+  power: number;
+  toughness: number;
+  colors: Color[];
+  subtypes: string[];
+  keywords: Keyword[];
+  art: string;
+}
+
+export type TriggerEvent =
+  | 'onEnterBattlefield'
+  | 'onDies'
+  | 'onAttack'
+  | 'onBlock'
+  | 'onDealCombatDamage'
+  | 'onUpkeep'
+  | 'onCast'
+  | 'onLifeGain';
+
+export interface Trigger {
+  on: TriggerEvent;
+  effects: Effect[];
+}
+
+export type StaticAbility =
+  | { kind: 'keyword'; keyword: Keyword }
+  | {
+      kind: 'staticPump';
+      filter: TargetFilter;
+      power: number;
+      toughness: number;
+      excludeSelf: boolean;
+    }
+  | {
+      kind: 'aura';
+      attachTo: TargetFilter;
+      power: number;
+      toughness: number;
+      keywords: Keyword[];
+    };
+
+export interface AbilityCost {
+  mana?: ManaCost;
+  tapSelf?: boolean;
+  sacrificeSelf?: boolean;
+}
+
+export interface ActivatedAbility {
+  cost: AbilityCost;
+  effects: Effect[];
+  sorcerySpeed: boolean;
+  targets: TargetFilter[];
+}
+
+/** Static definition, one per oracle card. Never mutated. */
+export interface CardDef {
+  oracleId: OracleId;
+  name: string;
+  manaCost: ManaCost;
+  cmc: number;
+  colors: Color[];
+  cardTypes: CardType[];
+  subtypes: string[];
+  power?: number;
+  toughness?: number;
+  oracleText: string;
+  keywords: Keyword[];
+  statics: StaticAbility[];
+  triggers: Trigger[];
+  activated: ActivatedAbility[];
+  /** Instants and sorceries only. */
+  spellEffects: Effect[];
+  /** One entry per required target, in the order the player chooses them. */
+  targets: TargetFilter[];
+  /** Ward cost, when the card has the ward keyword. */
+  wardCost?: ManaCost;
+  artist: string;
+  art: string;
+  image: string;
+  /** Lands only. */
+  producesMana?: Color[];
+}
+
+/** A specific instance on the table. Only `reduce()` may change one. */
+export interface CardInstance {
+  id: CardId;
+  oracleId: OracleId;
+  controller: PlayerId;
+  owner: PlayerId;
+  zone: Zone;
+  tapped: boolean;
+  summonedThisTurn: boolean;
+  damage: number;
+  counters: Record<CounterKind, number>;
+  /** Cleared at cleanup. */
+  tempPump: { power: number; toughness: number };
+  /** Cleared at cleanup. */
+  tempKeywords: Keyword[];
+  /** Auras only: the permanent this is attached to. */
+  attachedTo?: CardId;
+  /** Tokens cease to exist when they leave the battlefield. */
+  isToken: boolean;
+  tokenSpec?: TokenSpec;
+  attacking: boolean;
+  /** The attacker this creature is blocking. */
+  blocking?: CardId;
+  /** Blockers assigned to this attacker, in damage-assignment order. */
+  blockedBy: CardId[];
+}
+
+export interface PlayerState {
+  id: PlayerId;
+  life: number;
+  library: CardId[];
+  hand: CardId[];
+  battlefield: CardId[];
+  graveyard: CardId[];
+  exile: CardId[];
+  landPlayedThisTurn: boolean;
+  manaPool: Partial<Record<Color | 'C', number>>;
+  mulligansTaken: number;
+  /** Set when a draw was attempted from an empty library. */
+  drewFromEmpty: boolean;
+}
+
+export interface StackObject {
+  id: string;
+  source: CardId;
+  controller: PlayerId;
+  effects: Effect[];
+  targets: TargetSelection;
+  isTriggered: boolean;
+}
+
+/** What a spell or ability points at. */
+export type TargetSelection = CardId[] | 'player0' | 'player1' | null;
+
+export interface GameState {
+  cards: Record<CardId, CardInstance>;
+  defs: Record<OracleId, CardDef>;
+  players: [PlayerState, PlayerState];
+  /** Whose turn it is. */
+  active: PlayerId;
+  /** Who may act right now. */
+  priority: PlayerId;
+  turn: number;
+  phase: Phase;
+  stack: StackObject[];
+  winner: PlayerId | null;
+  rngSeed: number;
+  /** Monotonic, so generated ids never collide. */
+  nextId: number;
+  /**
+   * True while a triggered ability resolves. A trigger may not enqueue another
+   * trigger; this flag is the structural guard against loops.
+   */
+  resolvingTrigger: boolean;
+  /** Set when a scry is awaiting the controller's decision. */
+  pendingScry: { player: PlayerId; cards: CardId[] } | null;
+}
+
+export type Action =
+  | { kind: 'playLand'; card: CardId }
+  | { kind: 'castSpell'; card: CardId; targets: TargetSelection }
+  | { kind: 'activate'; card: CardId; abilityIndex: number; targets: TargetSelection }
+  | { kind: 'declareAttackers'; attackers: CardId[] }
+  | { kind: 'declareBlockers'; blocks: BlockAssignment[] }
+  | { kind: 'orderBlockers'; attacker: CardId; order: CardId[] }
+  | { kind: 'scryDecision'; toBottom: CardId[] }
+  | { kind: 'mulligan' }
+  | { kind: 'keepHand'; toBottom: CardId[] }
+  | { kind: 'tapLand'; card: CardId }
+  | { kind: 'pass' };
+
+export interface BlockAssignment {
+  blocker: CardId;
+  attacker: CardId;
+}
+
+export type GameEvent =
+  | { type: 'DRAW'; player: PlayerId; card: CardId }
+  | { type: 'PLAY'; player: PlayerId; card: CardId }
+  | { type: 'CAST'; player: PlayerId; card: CardId; targets: TargetSelection }
+  | { type: 'RESOLVE'; card: CardId }
+  | { type: 'COUNTERED'; card: CardId }
+  | { type: 'TAP'; card: CardId }
+  | { type: 'UNTAP'; card: CardId }
+  | { type: 'ATTACK'; attackers: CardId[] }
+  | { type: 'BLOCK'; blocker: CardId; attacker: CardId }
+  | { type: 'DAMAGE'; source: CardId; target: CardId; amount: number; isPlayer: false }
+  | { type: 'DAMAGE'; source: CardId; target: PlayerId; amount: number; isPlayer: true }
+  | { type: 'DIE'; card: CardId }
+  | { type: 'LIFE_CHANGE'; player: PlayerId; from: number; to: number }
+  | { type: 'COUNTER_ADD'; card: CardId; counter: CounterKind; count: number }
+  | { type: 'TOKEN_CREATE'; card: CardId }
+  | { type: 'ZONE_CHANGE'; card: CardId; from: Zone; to: Zone }
+  | { type: 'SCRY'; player: PlayerId; count: number }
+  | { type: 'PHASE'; phase: Phase; active: PlayerId; turn: number }
+  | { type: 'TRIGGER'; source: CardId; on: TriggerEvent }
+  | { type: 'WIN'; player: PlayerId };
+
+export interface ReduceResult {
+  state: GameState;
+  events: GameEvent[];
+}
+
+/** Exhaustiveness guard for switches over closed unions. */
+export function assertNever(x: never, context: string): never {
+  throw new Error(`${context}: unhandled variant ${JSON.stringify(x)}`);
+}

@@ -1,0 +1,26 @@
+{
+  "name": "emteegee",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The easiest way to play the best card game",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "pool": "tsx tools/build-pool.ts",
+    "art": "tsx tools/fetch-art.ts",
+    "sfx": "tsx tools/fetch-sfx.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.8"
+  }
+}
