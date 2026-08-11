@@ -87,12 +87,29 @@ export interface TargetFilter {
   tapped?: boolean;
   attacking?: boolean;
   blocking?: boolean;
+  /**
+   * Negated constraints. Magic's classic removal is written in the negative
+   * ("target nonblack creature", "target nonartifact creature") and a positive
+   * whitelist cannot express it: listing the four other colors both catches
+   * black multicolor creatures and wrongly excludes colorless ones.
+   */
+  notColors?: Color[];
+  notCardTypes?: CardType[];
 }
 
 export type Duration = 'endOfTurn' | 'permanent';
 
-/** Who or what an effect resolves against. */
-export type EffectTarget = TargetFilter | 'self' | 'player';
+/**
+ * Who or what an effect resolves against.
+ *
+ * `'any'` is Magic's "any target": a creature or a player, chosen by the caster when
+ * the spell is cast. Without it no burn spell in the game is expressible, since every
+ * one of them reads "deals N damage to any target".
+ */
+export type EffectTarget = TargetFilter | 'self' | 'player' | 'any';
+
+/** Which player an effect acts on. `'target'` means the caster chooses. */
+export type PlayerTarget = 'you' | 'opponent' | 'target';
 
 /**
  * The closed effect vocabulary. `effects.ts` switches exhaustively over this
@@ -102,10 +119,10 @@ export type Effect =
   | { kind: 'damage'; target: EffectTarget; amount: number }
   | { kind: 'destroy'; target: TargetFilter }
   | { kind: 'exile'; target: TargetFilter }
-  | { kind: 'draw'; player: 'you' | 'opponent'; count: number }
-  | { kind: 'discard'; player: 'you' | 'opponent'; count: number }
-  | { kind: 'gainLife'; player: 'you' | 'opponent'; amount: number }
-  | { kind: 'loseLife'; player: 'you' | 'opponent'; amount: number }
+  | { kind: 'draw'; player: PlayerTarget; count: number }
+  | { kind: 'discard'; player: PlayerTarget; count: number }
+  | { kind: 'gainLife'; player: PlayerTarget; amount: number }
+  | { kind: 'loseLife'; player: PlayerTarget; amount: number }
   | { kind: 'pump'; target: EffectTarget; power: number; toughness: number; duration: Duration }
   | { kind: 'grantKeyword'; target: EffectTarget; keyword: Keyword; duration: Duration }
   | { kind: 'tap'; target: TargetFilter }
@@ -132,6 +149,8 @@ export interface TokenSpec {
 
 export type TriggerEvent =
   | 'onEnterBattlefield'
+  /** Another creature you control entering. Soul Warden and every lifegain engine. */
+  | 'onOtherEnterBattlefield'
   | 'onDies'
   | 'onAttack'
   | 'onBlock'
@@ -143,16 +162,32 @@ export type TriggerEvent =
 export interface Trigger {
   on: TriggerEvent;
   effects: Effect[];
+  /**
+   * Targets this ability requires, chosen when it goes on the stack.
+   *
+   * A triggered ability picks its targets at a different moment than the spell that
+   * created it, so it declares them here rather than on `CardDef.targets`.
+   */
+  targets?: TargetFilter[];
 }
 
 export type StaticAbility =
   | { kind: 'keyword'; keyword: Keyword }
+  /** This creature cannot be declared as a blocker. */
+  | { kind: 'cantBlock' }
   | {
       kind: 'staticPump';
       filter: TargetFilter;
       power: number;
       toughness: number;
       excludeSelf: boolean;
+      /**
+       * Keywords granted alongside the pump. Tribal lords almost always grant one
+       * ("Other Goblins you control get +1/+1 and have haste"), and a lord that
+       * silently drops the keyword half would have the engine refuse attacks the
+       * real card allows.
+       */
+      keywords?: Keyword[];
     }
   | {
       kind: 'aura';

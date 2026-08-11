@@ -56,10 +56,8 @@ import type {
   StackObject,
   TargetFilter,
   TargetSelection,
-  Trigger,
-  TriggerEvent,
 } from './types';
-import { assertNever, PHASE_ORDER, STACK_CAP } from './types';
+import { assertNever, PHASE_ORDER } from './types';
 import {
   cloneState,
   hasKeyword,
@@ -73,7 +71,8 @@ import {
 import { isLegal, legalActions } from './actions';
 import { applyEffect, applyEffects } from './effects';
 import { declareAttackers, declareBlockers, resolveDamageStep } from './combat';
-import { evCast, evPhase, evPlay, evResolve, evUntap, evWin, evZoneChange, evTrigger } from './events';
+import { fireTriggers, triggerSourceOf, triggersOfDef } from './triggers';
+import { evCast, evPhase, evPlay, evResolve, evUntap, evWin, evZoneChange } from './events';
 
 /** Every mana symbol that can appear in a cost. */
 const MANA_KEYS = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
@@ -204,62 +203,48 @@ function defOf(state: GameState, card: CardId): CardDef | undefined {
   return state.defs[instance.oracleId];
 }
 
-/** The triggers printed on a card, or none for a token with no definition. */
-function triggersOf(state: GameState, card: CardId): readonly Trigger[] {
-  return defOf(state, card)?.triggers ?? [];
-}
-
 /**
- * Fire one card's triggers for an event, on a state this caller owns.
- *
- * The same two suppressions as `effects.ts` and `combat.ts`: a trigger may not
- * enqueue a trigger (spec §5), and the stack is capped at `STACK_CAP` objects
- * (spec §3). The `TRIGGER` event is emitted either way, because the log should
- * show that an ability triggered even when it could not go on the stack.
- *
- * This file owns the three trigger events that belong to it — `onCast` when a
- * spell goes on the stack, `onEnterBattlefield` when a permanent arrives, and
- * `onUpkeep` at the upkeep step. Every other `TriggerEvent` is fired by the
- * module that causes it, so nothing fires twice.
+ * This file owns the four trigger events that belong to it — `onCast` when a
+ * spell goes on the stack, `onEnterBattlefield` and `onOtherEnterBattlefield`
+ * when a permanent arrives, and `onUpkeep` at the upkeep step. Every other
+ * `TriggerEvent` is fired by the module that causes it, so nothing fires twice.
+ * The enqueue itself, its two suppressions, and the targets a trigger chooses
+ * all live in `triggers.ts`.
  */
-function fireTriggers(
-  owned: GameState,
-  events: GameEvent[],
-  triggers: readonly Trigger[],
-  on: TriggerEvent,
-  source: CardId,
-  controller: PlayerId,
-): void {
-  for (const trigger of triggers) {
-    if (trigger.on !== on) continue;
-    events.push(evTrigger(source, on));
-    if (owned.resolvingTrigger) continue;
-    if (owned.stack.length >= STACK_CAP) continue;
-    owned.stack.push({
-      id: `trigger#${owned.nextId}`,
-      source,
-      controller,
-      effects: [...trigger.effects],
-      targets: null,
-      isTriggered: true,
-    });
-    owned.nextId += 1;
-  }
-}
 
 /**
- * A permanent has arrived on a battlefield: it is summoning sick, and its
- * enter-the-battlefield triggers go on the stack.
+ * A permanent has arrived on a battlefield: it is summoning sick, its own
+ * enter-the-battlefield triggers go on the stack, and the permanents already
+ * there notice.
  *
  * `move` deliberately does not set `summonedThisTurn` — it is a zone change,
  * not an arrival — so a creature cast from hand would otherwise be able to
  * attack the turn it landed.
+ *
+ * `onOtherEnterBattlefield` is the Soul Warden reading: *another creature you
+ * control* entering. So it fires only for creatures, only on the permanents of
+ * the same player, and never on the arriving creature itself.
  */
 function enteredBattlefield(owned: GameState, card: CardId, events: GameEvent[]): void {
   const instance = owned.cards[card];
   if (!instance) return;
   instance.summonedThisTurn = true;
-  fireTriggers(owned, events, triggersOf(owned, card), 'onEnterBattlefield', card, instance.controller);
+  fireTriggers(owned, events, triggerSourceOf(owned, card), 'onEnterBattlefield', card, instance.controller);
+
+  if (!isCreature(owned, card)) return;
+  for (const id of [...owned.players[instance.controller].battlefield]) {
+    if (id === card) continue;
+    const watcher = owned.cards[id];
+    if (!watcher) continue;
+    fireTriggers(
+      owned,
+      events,
+      triggerSourceOf(owned, id),
+      'onOtherEnterBattlefield',
+      id,
+      watcher.controller,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -433,8 +418,10 @@ export function resolveTop(state: GameState): ReduceResult {
     enteredBattlefield(next, object.source, events);
   }
 
+  // `applyEffects` either clones or, with nothing to apply, hands back the very
+  // state it was given — which is the clone this call already owns either way.
   const applied = applyEffects(next, [...object.effects], object.source, object.controller, object.targets);
-  next = cloneState(applied.state);
+  next = applied.state;
   events.push(...applied.events);
 
   if (isSpell && !isPermanent && next.cards[object.source]?.zone === 'stack') {
@@ -442,11 +429,18 @@ export function resolveTop(state: GameState): ReduceResult {
     events.push(evZoneChange(object.source, 'stack', 'graveyard'));
   }
 
-  next.resolvingTrigger = false;
   next.priority = defaultPriority(next);
 
+  // The guard must still be set while state-based actions run. A trigger that deals
+  // lethal damage does not kill anything itself — damage only marks, and the sweep
+  // below is what destroys the creature and fires its `onDies`. Clearing the flag
+  // before the sweep would let a trigger enqueue a trigger through that back door,
+  // which is exactly the loop the flag exists to make structurally impossible.
   const settled = stateBasedActions(next);
-  return { state: settled.state, events: [...events, ...settled.events] };
+  const resolved = settled.state;
+  resolved.resolvingTrigger = false;
+
+  return { state: resolved, events: [...events, ...settled.events] };
 }
 
 // ---------------------------------------------------------------------------
@@ -481,7 +475,7 @@ function upkeepStep(owned: GameState): ReduceResult {
   for (const id of [...owned.players[owned.active].battlefield]) {
     const card = owned.cards[id];
     if (!card) continue;
-    fireTriggers(owned, events, triggersOf(owned, id), 'onUpkeep', id, card.controller);
+    fireTriggers(owned, events, triggerSourceOf(owned, id), 'onUpkeep', id, card.controller);
   }
   return { state: owned, events };
 }
@@ -693,7 +687,7 @@ function castSpell(state: GameState, card: CardId, targets: TargetSelection): Re
   });
   next.nextId += 1;
 
-  fireTriggers(next, events, definition.triggers, 'onCast', card, player);
+  fireTriggers(next, events, triggersOfDef(definition), 'onCast', card, player);
   next.priority = defaultPriority(next);
   return { state: next, events };
 }
@@ -736,13 +730,12 @@ function activate(
 
   if (ability.effects.every((effect) => effect.kind === 'addMana')) {
     const produced = applyEffects(next, [...ability.effects], card, player, targets);
-    next = cloneState(produced.state);
+    next = produced.state;
     events.push(...produced.events);
     next.priority = defaultPriority(next);
     return { state: next, events };
   }
 
-  next = cloneState(next);
   next.stack.push({
     id: `ability#${next.nextId}`,
     source: card,

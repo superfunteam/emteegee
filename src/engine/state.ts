@@ -496,6 +496,11 @@ function matchesFilter(
   if (filter.subtypes && !filter.subtypes.some((t) => base.subtypes.includes(t))) return false;
   if (filter.colors && !filter.colors.some((c) => base.colors.includes(c))) return false;
 
+  // Negated constraints are "none of these", not "not all of these": a black-red
+  // creature fails `notColors: ['B']`, and a colorless one passes it.
+  if (filter.notColors && filter.notColors.some((c) => base.colors.includes(c))) return false;
+  if (filter.notCardTypes && filter.notCardTypes.some((t) => base.cardTypes.includes(t))) return false;
+
   if (filter.minPower !== undefined || filter.maxPower !== undefined) {
     const power = rawChars(state, id).power;
     if (filter.minPower !== undefined && power < filter.minPower) return false;
@@ -508,22 +513,50 @@ function matchesFilter(
   return true;
 }
 
-/** Everything the lords on the table add to this card. */
-function staticPumpFor(state: GameState, id: CardId): { power: number; toughness: number } {
-  let power = 0;
-  let toughness = 0;
-  if (inst(state, id).zone !== 'battlefield') return { power, toughness };
+type StaticPump = Extract<StaticAbility, { kind: 'staticPump' }>;
+
+/**
+ * Every `staticPump` on the table that applies to this card.
+ *
+ * A lord reaches only permanents on the battlefield, it skips itself when it says
+ * "other", and its filter is read from *its* controller's point of view — which
+ * is what makes `controller: 'you'` on a lord mean "mine" rather than "player
+ * 0"'s, and what keeps a Goblin lord out of the opponent's Goblins.
+ *
+ * Both halves of a lord are decided here, so the keywords it grants land on
+ * exactly the creatures its +N/+N does. A lord whose pump applied to a creature
+ * its haste did not would be a lord that lets a Goblin attack at the wrong size,
+ * or refuses an attack the printed card allows.
+ */
+function staticPumpsOn(state: GameState, id: CardId): StaticPump[] {
+  const out: StaticPump[] = [];
+  if (inst(state, id).zone !== 'battlefield') return out;
 
   for (const source of permanents(state)) {
     for (const ability of baseChars(state, source.id).statics) {
       if (ability.kind !== 'staticPump') continue;
       if (source.id === id && ability.excludeSelf) continue;
       if (!matchesFilter(state, id, ability.filter, source.controller)) continue;
-      power += ability.power;
-      toughness += ability.toughness;
+      out.push(ability);
     }
   }
+  return out;
+}
+
+/** Everything the lords on the table add to this card. */
+function staticPumpFor(state: GameState, id: CardId): { power: number; toughness: number } {
+  let power = 0;
+  let toughness = 0;
+  for (const ability of staticPumpsOn(state, id)) {
+    power += ability.power;
+    toughness += ability.toughness;
+  }
   return { power, toughness };
+}
+
+/** May this creature be declared as a blocker at all, before any attacker is named? */
+export function cantBlock(state: GameState, card: CardId): boolean {
+  return baseChars(state, card).statics.some((ability) => ability.kind === 'cantBlock');
 }
 
 /**
@@ -545,10 +578,15 @@ export function toughnessOf(state: GameState, card: CardId): number {
 /**
  * Does this card have this keyword right now?
  *
- * Four sources count: printed keywords, a `keyword` static on the card itself,
- * keywords granted until end of turn, and keywords from an attached aura.
- * Keywords are lowercase and compared exactly — `'first strike'`, never
- * `'First Strike'`.
+ * Five sources count: printed keywords, a `keyword` static on the card itself,
+ * keywords granted until end of turn, keywords from an attached aura, and
+ * keywords a lord grants alongside its pump ("Other Goblins you control get
+ * +1/+1 and have haste"). Keywords are lowercase and compared exactly —
+ * `'first strike'`, never `'First Strike'`.
+ *
+ * The lord half goes through {@link staticPumpsOn}, the same filter and
+ * `excludeSelf` reasoning that decides the +N/+N, so the two can never disagree
+ * about which creatures a lord is talking about.
  */
 export function hasKeyword(state: GameState, card: CardId, kw: Keyword): boolean {
   const instance = inst(state, card);
@@ -564,6 +602,9 @@ export function hasKeyword(state: GameState, card: CardId, kw: Keyword): boolean
     for (const ability of baseChars(state, aura.id).statics) {
       if (ability.kind === 'aura' && ability.keywords.includes(kw)) return true;
     }
+  }
+  for (const ability of staticPumpsOn(state, card)) {
+    if (ability.keywords?.includes(kw)) return true;
   }
   return false;
 }

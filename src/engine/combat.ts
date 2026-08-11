@@ -39,11 +39,9 @@ import type {
   PlayerId,
   ReduceResult,
   TargetFilter,
-  Trigger,
-  TriggerEvent,
 } from './types';
-import { STACK_CAP } from './types';
 import {
+  cantBlock,
   cloneState,
   hasKeyword,
   inst,
@@ -53,7 +51,8 @@ import {
   toughnessOf,
 } from './state';
 import { applyEffect } from './effects';
-import { evAttack, evBlock, evTap, evTrigger } from './events';
+import { fireTriggers, triggerSourceOf } from './triggers';
+import { evAttack, evBlock, evTap } from './events';
 
 /**
  * The `EffectTarget` used when this file hands `applyEffect` a selection it has
@@ -61,53 +60,6 @@ import { evAttack, evBlock, evTap, evTrigger } from './events';
  * filter's own fields are never consulted — legality was settled here.
  */
 const SELECTED: TargetFilter = {};
-
-// ---------------------------------------------------------------------------
-// Triggers
-// ---------------------------------------------------------------------------
-
-/** The triggers printed on a card, or none for a token with no definition. */
-function triggersOf(state: GameState, card: CardId): readonly Trigger[] {
-  const instance = state.cards[card];
-  if (!instance) return [];
-  return state.defs[instance.oracleId]?.triggers ?? [];
-}
-
-/**
- * Fire one card's triggers for an event, on a state this caller owns.
- *
- * The same two suppressions as everywhere else: a trigger may not enqueue a
- * trigger (spec §5), and the stack is capped at `STACK_CAP` objects (spec §3).
- * The `TRIGGER` event is emitted either way, because the log should show that an
- * ability triggered even when it could not go on the stack.
- *
- * `triggers` is passed in rather than looked up so a creature that has already
- * died can still fire on the damage it dealt on the way out.
- */
-function fireTriggers(
-  owned: GameState,
-  events: GameEvent[],
-  triggers: readonly Trigger[],
-  on: TriggerEvent,
-  source: CardId,
-  controller: PlayerId,
-): void {
-  for (const trigger of triggers) {
-    if (trigger.on !== on) continue;
-    events.push(evTrigger(source, on));
-    if (owned.resolvingTrigger) continue;
-    if (owned.stack.length >= STACK_CAP) continue;
-    owned.stack.push({
-      id: `trigger#${owned.nextId}`,
-      source,
-      controller,
-      effects: [...trigger.effects],
-      targets: null,
-      isTriggered: true,
-    });
-    owned.nextId += 1;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Legality
@@ -151,6 +103,10 @@ export function canAttack(state: GameState, card: CardId): boolean {
  * Menace is deliberately absent: it is a property of the whole assignment, not
  * of any one blocker, so `declareBlockers` checks it across the set. A blocker
  * that fails here fails on its own merits.
+ *
+ * The `cantBlock` static is one of those merits, and it is checked before the
+ * attacker is even considered: a creature that cannot block cannot block
+ * anything, evasion or no evasion.
  */
 function blockProblem(state: GameState, blocker: CardId, attacker: CardId): string | null {
   const instance = state.cards[blocker];
@@ -161,6 +117,7 @@ function blockProblem(state: GameState, blocker: CardId, attacker: CardId): stri
     return 'is not controlled by the defending player';
   }
   if (instance.tapped) return 'is tapped';
+  if (cantBlock(state, blocker)) return 'cannot block';
   if (instance.blocking !== undefined) return `is already blocking "${instance.blocking}"`;
 
   const target = state.cards[attacker];
@@ -228,7 +185,7 @@ export function declareAttackers(state: GameState, attackers: CardId[]): ReduceR
   }
 
   for (const card of attackers) {
-    fireTriggers(next, events, triggersOf(next, card), 'onAttack', card, next.cards[card]!.controller);
+    fireTriggers(next, events, triggerSourceOf(next, card), 'onAttack', card, next.cards[card]!.controller);
   }
   return { state: next, events };
 }
@@ -291,7 +248,7 @@ export function declareBlockers(state: GameState, blocks: BlockAssignment[]): Re
 
   for (const block of blocks) {
     const controller = next.cards[block.blocker]!.controller;
-    fireTriggers(next, events, triggersOf(next, block.blocker), 'onBlock', block.blocker, controller);
+    fireTriggers(next, events, triggerSourceOf(next, block.blocker), 'onBlock', block.blocker, controller);
   }
   return { state: next, events };
 }
@@ -594,7 +551,7 @@ function runDamageStep(
   const dealt = dealing.map((plan) => ({
     source: plan.source,
     controller: plan.controller,
-    triggers: triggersOf(next, plan.source),
+    from: triggerSourceOf(next, plan.source),
   }));
 
   const swept = applyStateBasedActions(next, deathtouched);
@@ -602,7 +559,7 @@ function runDamageStep(
   events.push(...swept.events);
 
   for (const entry of dealt) {
-    fireTriggers(next, events, entry.triggers, 'onDealCombatDamage', entry.source, entry.controller);
+    fireTriggers(next, events, entry.from, 'onDealCombatDamage', entry.source, entry.controller);
   }
   return { state: next, events };
 }

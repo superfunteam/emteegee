@@ -20,8 +20,8 @@
  *    point of separating the two.
  * 4. **A trigger may not enqueue a trigger.** When `state.resolvingTrigger` is
  *    set, a triggered ability still records its `TRIGGER` event but does not go
- *    on the stack. This is the structural guard against loops (spec §5), and it
- *    lives here because this is where triggers are fired.
+ *    on the stack. This is the structural guard against loops (spec §5); it
+ *    lives in `triggers.ts`, which every module that fires a trigger shares.
  *
  * Targeting legality is not decided here. `actions.ts` owns it, and this file
  * trusts the `TargetSelection` it is handed: a filtered effect with no selection
@@ -39,15 +39,15 @@ import type {
   GameState,
   OracleId,
   PlayerId,
+  PlayerTarget,
   ReduceResult,
   TargetSelection,
   TokenSpec,
-  Trigger,
-  TriggerEvent,
   Zone,
 } from './types';
-import { assertNever, STACK_CAP } from './types';
+import { assertNever } from './types';
 import { cloneState, isCreature, move, newInstance, opponentOf } from './state';
+import { fireTriggers, triggersOfDef, type TriggerSource } from './triggers';
 import {
   evCounterAdd,
   evCountered,
@@ -59,7 +59,6 @@ import {
   evScry,
   evTap,
   evTokenCreate,
-  evTrigger,
   evUntap,
   evZoneChange,
 } from './events';
@@ -96,13 +95,13 @@ export function applyEffect(
     case 'returnToHand':
       return relocate(state, cardsFor(state, effect.target, source, targets), 'hand', false);
     case 'draw':
-      return draw(state, sideOf(effect.player, controller), effect.count);
+      return draw(state, sideOf(effect.player, controller, targets), effect.count);
     case 'discard':
-      return discard(state, sideOf(effect.player, controller), effect.count);
+      return discard(state, sideOf(effect.player, controller, targets), effect.count);
     case 'gainLife':
-      return gainLife(state, sideOf(effect.player, controller), effect.amount);
+      return gainLife(state, sideOf(effect.player, controller, targets), effect.amount);
     case 'loseLife':
-      return loseLife(state, sideOf(effect.player, controller), effect.amount);
+      return loseLife(state, sideOf(effect.player, controller, targets), effect.amount);
     case 'pump':
       return pump(state, effect, cardsFor(state, effect.target, source, targets));
     case 'grantKeyword':
@@ -120,7 +119,7 @@ export function applyEffect(
     case 'addMana':
       return addMana(state, controller, effect.colors);
     case 'counterSpell':
-      return counterSpell(state, source);
+      return counterSpell(state, source, targets);
     default:
       return assertNever(effect, 'applyEffect');
   }
@@ -154,9 +153,23 @@ export function applyEffects(
 // Resolving who and what an effect points at
 // ---------------------------------------------------------------------------
 
-/** `'you'` and `'opponent'` are relative to whoever controls the effect. */
-function sideOf(who: 'you' | 'opponent', controller: PlayerId): PlayerId {
-  return who === 'you' ? controller : opponentOf(controller);
+/**
+ * Which player an effect acts on.
+ *
+ * `'you'` and `'opponent'` are relative to whoever controls the effect, so one
+ * card reads correctly from either side of the table. `'target'` is the caster's
+ * choice and comes from the selection `actions.ts` validated — "target player
+ * draws a card" is a different card from "you draw a card", and collapsing the
+ * two would hand the draw to the wrong player.
+ *
+ * A `'target'` with no player selected falls back to the opponent, the same
+ * reading {@link playerFor} gives an unselected `'player'`: every card in the
+ * pool that points at a player unprompted is pointing across the table.
+ */
+function sideOf(who: PlayerTarget, controller: PlayerId, targets: TargetSelection): PlayerId {
+  if (who === 'you') return controller;
+  if (who === 'opponent') return opponentOf(controller);
+  return selectedPlayer(targets) ?? opponentOf(controller);
 }
 
 /** The player a `TargetSelection` names, if it names one. */
@@ -171,9 +184,12 @@ function selectedPlayer(targets: TargetSelection): PlayerId | null {
  *
  * `'self'` is the source, whatever the selection says — a creature pumping
  * itself does not care what the player tapped. `'player'` is not a card at all.
- * A `TargetFilter` resolves to exactly the selection `actions.ts` validated:
- * this file never re-derives legality, so an effect handed no selection affects
- * nothing.
+ * A `TargetFilter` — and `'any'` when the caster chose a creature — resolves to
+ * exactly the selection `actions.ts` validated: this file never re-derives
+ * legality, so an effect handed no selection affects nothing.
+ *
+ * `'any'` pointed at a player leaves nothing here, because the selection is not
+ * a list of cards; {@link playerFor} picks it up instead.
  */
 function cardsFor(
   state: GameState,
@@ -187,8 +203,22 @@ function cardsFor(
   return targets.filter((id) => state.cards[id] !== undefined);
 }
 
-/** The player an effect points at, or `null` when it points at cards instead. */
+/**
+ * The player an effect points at, or `null` when it points at cards instead.
+ *
+ * `'player'` always names one: with nothing selected it is the opponent, which
+ * is what every "deals N damage to target player" in the pool means when nobody
+ * chose.
+ *
+ * `'any'` is Magic's "any target" and names one only when the caster actually
+ * chose a face. A creature selection leaves it `null` and the damage goes to
+ * {@link cardsFor} instead — the two branches of the same choice, decided by
+ * which shape of `TargetSelection` came back. With no selection at all it points
+ * nowhere and the effect does nothing: "any target" is a choice, and inventing
+ * one here would be this file deciding legality, which `actions.ts` owns.
+ */
 function playerFor(target: EffectTarget, controller: PlayerId, targets: TargetSelection): PlayerId | null {
+  if (target === 'any') return selectedPlayer(targets);
   if (target !== 'player') return null;
   return selectedPlayer(targets) ?? opponentOf(controller);
 }
@@ -210,51 +240,6 @@ function changeLife(owned: GameState, player: PlayerId, delta: number): GameEven
   const to = from + delta;
   side.life = to;
   return evLifeChange(player, from, to);
-}
-
-// ---------------------------------------------------------------------------
-// Triggers
-// ---------------------------------------------------------------------------
-
-/**
- * Fire one card's triggers for an event.
- *
- * Every trigger emits its `TRIGGER` event unconditionally — the log and the
- * animator should show that an ability triggered even when it cannot go on the
- * stack. It is only the enqueue that is suppressed, in two cases:
- *
- * - `resolvingTrigger` is set, because a trigger may not enqueue a trigger
- *   (spec §5). This is the loop guard.
- * - the stack is already at `STACK_CAP`, because the cap counts every object
- *   (spec §3) and an overflowing stack would break the invariant the UI and the
- *   bot both rely on.
- *
- * `triggers` is passed in rather than looked up so a token that has already left
- * the battlefield can still fire `onDies`.
- */
-function fireTriggers(
-  owned: GameState,
-  events: GameEvent[],
-  triggers: readonly Trigger[],
-  on: TriggerEvent,
-  source: CardId,
-  controller: PlayerId,
-): void {
-  for (const trigger of triggers) {
-    if (trigger.on !== on) continue;
-    events.push(evTrigger(source, on));
-    if (owned.resolvingTrigger) continue;
-    if (owned.stack.length >= STACK_CAP) continue;
-    owned.stack.push({
-      id: `trigger#${owned.nextId}`,
-      source,
-      controller,
-      effects: [...trigger.effects],
-      targets: null,
-      isTriggered: true,
-    });
-    owned.nextId += 1;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -307,7 +292,7 @@ function damage(
 function relocate(state: GameState, ids: CardId[], to: Zone, dies: boolean): ReduceResult {
   let next = cloneState(state);
   const events: GameEvent[] = [];
-  const deaths: Array<{ id: CardId; controller: PlayerId; triggers: readonly Trigger[] }> = [];
+  const deaths: Array<{ id: CardId; controller: PlayerId; from: TriggerSource }> = [];
 
   for (const id of ids) {
     const card = next.cards[id];
@@ -323,14 +308,14 @@ function relocate(state: GameState, ids: CardId[], to: Zone, dies: boolean): Red
     events.push(evZoneChange(id, from, to));
     if (died) {
       events.push(evDie(id));
-      deaths.push({ id, controller, triggers: def?.triggers ?? [] });
+      deaths.push({ id, controller, from: triggersOfDef(def) });
     }
   }
 
   // Any state reached through `move` is a fresh clone this call owns, so the
   // triggers can be fired straight onto it.
   for (const death of deaths) {
-    fireTriggers(next, events, death.triggers, 'onDies', death.id, death.controller);
+    fireTriggers(next, events, death.from, 'onDies', death.id, death.controller);
   }
   return { state: next, events };
 }
@@ -393,9 +378,7 @@ function gainLife(state: GameState, player: PlayerId, amount: number): ReduceRes
   for (const id of [...next.players[player].battlefield]) {
     const card = next.cards[id];
     if (!card) continue;
-    const def = next.defs[card.oracleId];
-    if (!def) continue;
-    fireTriggers(next, events, def.triggers, 'onLifeGain', id, card.controller);
+    fireTriggers(next, events, triggersOfDef(next.defs[card.oracleId]), 'onLifeGain', id, card.controller);
   }
   return { state: next, events };
 }
@@ -636,12 +619,23 @@ function addMana(state: GameState, controller: PlayerId, colors: Color[]): Reduc
  * A countered spell goes to its owner's graveyard; a countered *triggered
  * ability* has no card to move, so its source stays exactly where it is.
  */
-function counterSpell(state: GameState, source: CardId): ReduceResult {
+function counterSpell(state: GameState, source: CardId, targets: TargetSelection): ReduceResult {
   let index = -1;
-  for (let i = state.stack.length - 1; i >= 0; i--) {
-    if (state.stack[i]!.source !== source) {
-      index = i;
-      break;
+
+  // Honor the target the player was made to choose. Falling through to "topmost" would
+  // let a counterspell with a restricted filter counter an object it may not legally
+  // point at, which is a rules break the UI has no way to show.
+  if (Array.isArray(targets) && targets.length > 0) {
+    const wanted = targets[targets.length - 1]!;
+    index = state.stack.findIndex((object) => object.source === wanted && object.source !== source);
+  }
+
+  if (index < 0) {
+    for (let i = state.stack.length - 1; i >= 0; i--) {
+      if (state.stack[i]!.source !== source) {
+        index = i;
+        break;
+      }
     }
   }
 

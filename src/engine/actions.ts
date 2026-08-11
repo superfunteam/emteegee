@@ -43,7 +43,7 @@ import type {
   Zone,
 } from './types';
 import { STACK_CAP } from './types';
-import { canPay, cardsIn, hasKeyword, inst, isCreature, opponentOf, powerOf } from './state';
+import { canPay, cantBlock, cardsIn, hasKeyword, inst, isCreature, opponentOf, powerOf } from './state';
 
 /** Every mana symbol that can appear in a cost. */
 const MANA_KEYS = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
@@ -168,6 +168,13 @@ function matchesFilter(
   if (filter.subtypes && !filter.subtypes.some((t) => chars.subtypes.includes(t))) return false;
   if (filter.colors && !filter.colors.some((c) => chars.colors.includes(c))) return false;
 
+  // Negated constraints are "none of these", not "not all of these". "Target
+  // nonblack creature" is `notColors: ['B']`: a black-red creature is still
+  // black and fails it, and a colorless one is not black and passes — neither of
+  // which a whitelist of the other four colors gets right.
+  if (filter.notColors && filter.notColors.some((c) => chars.colors.includes(c))) return false;
+  if (filter.notCardTypes && filter.notCardTypes.some((t) => chars.cardTypes.includes(t))) return false;
+
   if (filter.minPower !== undefined || filter.maxPower !== undefined) {
     const power = powerOf(state, id);
     if (filter.minPower !== undefined && power < filter.minPower) return false;
@@ -215,6 +222,17 @@ function targetsAPlayer(effects: readonly Effect[]): boolean {
   return effects.some((effect) => 'target' in effect && effect.target === 'player');
 }
 
+/** Does anything in this effect list read "any target"? */
+function targetsAnything(effects: readonly Effect[]): boolean {
+  return effects.some((effect) => 'target' in effect && effect.target === 'any');
+}
+
+/**
+ * The creature half of "any target", for an object that named no filter of its
+ * own. Every creature on either battlefield — the reading of a bare "any target".
+ */
+const ANY_TARGET_CREATURE: TargetFilter = { zone: 'battlefield', cardTypes: ['creature'] };
+
 /**
  * Every legal way to fill in a spell's or ability's targets.
  *
@@ -223,10 +241,24 @@ function targetsAPlayer(effects: readonly Effect[]): boolean {
  * out of `legalActions` when the board is empty, rather than offering it and
  * failing at resolution.
  *
- * With no `TargetFilter`s the object either points at a player (both are legal
- * choices, as in Magic) or at nothing. With filters, the result is the cross
- * product of each filter's legal targets, with no card chosen twice — one object
- * cannot be two of a spell's targets.
+ * Three shapes of object, in the order they are decided:
+ *
+ * - **"Any target"** — an effect whose target is `'any'`. Magic's burn spell:
+ *   one target, and it is a creature *or* a player, the caster's choice. Both
+ *   halves are enumerated, so a Bolt offers every creature it may legally point
+ *   at *and* each player's face. Offering only the creatures is what would make
+ *   Lightning Bolt unplayable on an empty board, and it is the whole reason the
+ *   member exists.
+ * - **No `TargetFilter`s** — the object either points at a player (both are
+ *   legal choices, as in Magic) or at nothing.
+ * - **Filters** — the cross product of each filter's legal targets, with no card
+ *   chosen twice, because one object cannot be two of a spell's targets.
+ *
+ * "Any target" is single-target by construction: `TargetSelection` is a list of
+ * cards *or* one player, so "a creature and a player" has no representation. An
+ * object that wants a second target alongside `'any'` therefore falls through to
+ * the ordinary cross product and is offered its creatures only, rather than
+ * being offered a player selection that would silently drop its other target.
  */
 function targetSelections(
   state: GameState,
@@ -234,6 +266,12 @@ function targetSelections(
   effects: readonly Effect[],
   controller: PlayerId,
 ): TargetSelection[] {
+  if (targetsAnything(effects) && filters.length <= 1) {
+    const filter = filters[0] ?? ANY_TARGET_CREATURE;
+    const creatures: TargetSelection[] = legalTargets(state, filter, controller).map((id) => [id]);
+    return [...creatures, 'player0', 'player1'];
+  }
+
   if (filters.length === 0) {
     return targetsAPlayer(effects) ? ['player0', 'player1'] : [null];
   }
@@ -252,6 +290,36 @@ function targetSelections(
     combos = next;
   }
   return combos;
+}
+
+/**
+ * The targets a triggered ability chooses as it goes on the stack.
+ *
+ * A trigger picks its targets at a different moment than the spell that created
+ * it, and no `Action` carries the choice — nothing can ask a player where their
+ * Bogardan Firefiend points. So the choice is made here and made
+ * deterministically: the first legal option for each filter, in the stable order
+ * {@link legalTargets} reports, never choosing one card twice.
+ *
+ * Legality is `legalTargets` and nothing else, so a trigger can no more reach a
+ * hexproof permanent, or a ward its controller cannot pay, than a spell can.
+ *
+ * A filter with nothing to point at contributes nothing rather than aborting:
+ * the ability still goes on the stack, and the effects that wanted a target
+ * simply do nothing when it resolves.
+ */
+export function triggerTargets(
+  state: GameState,
+  filters: readonly TargetFilter[],
+  controller: PlayerId,
+): TargetSelection {
+  const chosen: CardId[] = [];
+  for (const filter of filters) {
+    const option = legalTargets(state, filter, controller).find((id) => !chosen.includes(id));
+    if (option === undefined) break;
+    chosen.push(option);
+  }
+  return chosen.length > 0 ? chosen : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -397,30 +465,88 @@ function canAttack(state: GameState, id: CardId): boolean {
 }
 
 /**
- * Every subset of the eligible attackers, including the empty one — declining to
- * attack is a declaration too, and the player must be able to make it.
+ * Candidate attacks — NOT every subset.
  *
- * Built by doubling rather than by bit masks so a wide board fails loudly on
- * memory instead of silently wrapping an integer to nothing.
+ * A combat declaration is set-valued, and enumerating every subset is 2^n: a board
+ * of eight creatures is 256 actions, twelve is 4096, and the enumeration is walked
+ * on every call including from `advancePhase`. Legality for these actions is a
+ * predicate (`validateAttack`), not membership in a list, so this function's only
+ * job is to offer a useful, bounded set of candidates to the bot and to the UI.
+ *
+ * The empty attack and the all-in attack are always present, so the bot can never
+ * miss lethal by sampling.
  */
 function attackActions(state: GameState, player: PlayerId): Action[] {
   if (state.phase !== 'declareAttackers') return [];
   if (state.active !== player) return [];
+  // Declaring attackers is a turn-based action taken as the step begins, before any
+  // player receives priority. With something still on the stack it is not yet time.
+  if (state.stack.length !== 0) return [];
 
   const eligible = state.players[player].battlefield.filter((id) => canAttack(state, id));
-  let subsets: CardId[][] = [[]];
-  for (const id of eligible) {
-    subsets = [...subsets, ...subsets.map((subset) => [...subset, id])];
+  if (eligible.length === 0) return [{ kind: 'declareAttackers', attackers: [] }];
+
+  const candidates: CardId[][] = [[], [...eligible]];
+  // Each creature alone, so a player or bot can commit exactly one attacker.
+  for (const id of eligible) candidates.push([id]);
+  // All but one, which is how "attack with everything except my blocker" is reached.
+  if (eligible.length > 2) {
+    for (const id of eligible) candidates.push(eligible.filter((other) => other !== id));
   }
-  return subsets.map((attackers) => ({ kind: 'declareAttackers', attackers }));
+
+  return dedupeCardSets(candidates).map((attackers) => ({ kind: 'declareAttackers', attackers }));
 }
 
-/** Untapped, on the battlefield, and not already committed to a block. */
+/** Removes duplicate sets, comparing order-insensitively. */
+function dedupeCardSets(sets: CardId[][]): CardId[][] {
+  const seen = new Set<string>();
+  const out: CardId[][] = [];
+  for (const set of sets) {
+    const key = [...set].sort().join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(set);
+  }
+  return out;
+}
+
+/**
+ * Is this attack legal? Returns null when it is, or the reason when it is not.
+ *
+ * This is the definition `isLegal` and `combat.ts` both consult, so a declaration
+ * the UI offers can never be one the engine throws on.
+ */
+export function validateAttack(state: GameState, attackers: readonly CardId[]): string | null {
+  if (state.phase !== 'declareAttackers') return 'not the declare attackers step';
+  if (state.stack.length !== 0) return 'something is still on the stack';
+
+  const seen = new Set<CardId>();
+  for (const id of attackers) {
+    if (seen.has(id)) return `${id} declared twice`;
+    seen.add(id);
+    const card = state.cards[id];
+    if (!card) return `${id} does not exist`;
+    if (card.controller !== state.active) return `${id} is not yours to attack with`;
+    if (!canAttack(state, id)) return `${id} cannot attack`;
+  }
+  return null;
+}
+
+/**
+ * Untapped, on the battlefield, not already committed to a block, and not a
+ * creature that cannot block at all.
+ *
+ * The `cantBlock` static is checked here as well as in `combat.ts` on purpose:
+ * this file is the single definition of legal, and a blocker enumerated here
+ * that `declareBlockers` then refuses would be a move the UI offers and the
+ * engine throws on.
+ */
 function canBlock(state: GameState, id: CardId): boolean {
   const card = state.cards[id];
   if (!card || card.zone !== 'battlefield') return false;
   if (!isCreature(state, id)) return false;
   if (card.tapped) return false;
+  if (cantBlock(state, id)) return false;
   return card.blocking === undefined;
 }
 
@@ -447,25 +573,113 @@ function menaceSatisfied(state: GameState, blocks: readonly BlockAssignment[], a
 function blockActions(state: GameState, player: PlayerId): Action[] {
   if (state.phase !== 'declareBlockers') return [];
   if (player !== opponentOf(state.active)) return [];
+  if (state.stack.length !== 0) return [];
 
   const attackers = state.players[state.active].battlefield.filter(
     (id) => state.cards[id]?.attacking === true,
   );
   const blockers = state.players[player].battlefield.filter((id) => canBlock(state, id));
 
-  let assignments: BlockAssignment[][] = [[]];
+  // The full assignment space is (1 + attackers)^blockers — eight against eight is
+  // forty-three million. It is never enumerated. `validateBlocks` is the definition
+  // of legal; these are candidates.
+  const candidates: BlockAssignment[][] = [[]];
+
+  // Every single legal block, so the UI has an affordance per pair and the bot has a
+  // chump-block option against each attacker.
   for (const blocker of blockers) {
-    const options = attackers.filter((attacker) => canBlockAttacker(state, blocker, attacker));
-    if (options.length === 0) continue;
-    assignments = [
-      ...assignments,
-      ...assignments.flatMap((partial) => options.map((attacker) => [...partial, { blocker, attacker }])),
-    ];
+    for (const attacker of attackers) {
+      if (!canBlockAttacker(state, blocker, attacker)) continue;
+      const single: BlockAssignment[] = [{ blocker, attacker }];
+      if (menaceSatisfied(state, single, attackers)) candidates.push(single);
+    }
   }
 
-  return assignments
-    .filter((blocks) => menaceSatisfied(state, blocks, attackers))
-    .map((blocks) => ({ kind: 'declareBlockers', blocks }));
+  // Menace needs two blockers, so a single block against one is never legal and the
+  // loop above filtered every one of them out. Without these pairs a menace attacker
+  // could never be blocked from the candidate list at all — the human could still
+  // build the block by tapping, but the bot picks from here, so it would simply never
+  // block one.
+  for (const attacker of attackers) {
+    if (!hasKeyword(state, attacker, 'menace')) continue;
+    const eligible = blockers.filter((b) => canBlockAttacker(state, b, attacker));
+    for (let i = 0; i < eligible.length; i++) {
+      for (let j = i + 1; j < eligible.length; j++) {
+        candidates.push([
+          { blocker: eligible[i]!, attacker },
+          { blocker: eligible[j]!, attacker },
+        ]);
+      }
+    }
+  }
+
+  // One greedy "block everything you can", pairing each blocker with the first
+  // attacker still unblocked, so declining to block is never the bot's only option
+  // on a wide board.
+  const greedy: BlockAssignment[] = [];
+  const taken = new Set<CardId>();
+  for (const blocker of blockers) {
+    const attacker = attackers.find((a) => !taken.has(a) && canBlockAttacker(state, blocker, a));
+    if (!attacker) continue;
+    taken.add(attacker);
+    greedy.push({ blocker, attacker });
+  }
+  // Drop any block the greedy pass left one short on a menace attacker, rather than
+  // discarding the whole assignment for one bad pairing.
+  const legalGreedy = greedy.filter(({ attacker }) => {
+    if (!hasKeyword(state, attacker, 'menace')) return true;
+    return greedy.filter((b) => b.attacker === attacker).length >= 2;
+  });
+  if (legalGreedy.length && menaceSatisfied(state, legalGreedy, attackers)) {
+    candidates.push(legalGreedy);
+  }
+
+  return dedupeBlockSets(candidates).map((blocks) => ({ kind: 'declareBlockers', blocks }));
+}
+
+function dedupeBlockSets(sets: BlockAssignment[][]): BlockAssignment[][] {
+  const seen = new Set<string>();
+  const out: BlockAssignment[][] = [];
+  for (const set of sets) {
+    const key = set.map((b) => `${b.blocker}>${b.attacker}`).sort().join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(set);
+  }
+  return out;
+}
+
+/**
+ * Is this set of blocks legal? Returns null when it is, or the reason when it is not.
+ *
+ * Menace is checked across the whole assignment rather than per blocker, which is the
+ * only way to express "blocked by two or more".
+ */
+export function validateBlocks(state: GameState, blocks: readonly BlockAssignment[]): string | null {
+  if (state.phase !== 'declareBlockers') return 'not the declare blockers step';
+  if (state.stack.length !== 0) return 'something is still on the stack';
+
+  const defender = opponentOf(state.active);
+  const attackers = state.players[state.active].battlefield.filter(
+    (id) => state.cards[id]?.attacking === true,
+  );
+
+  const used = new Set<CardId>();
+  for (const { blocker, attacker } of blocks) {
+    if (used.has(blocker)) return `${blocker} cannot block twice`;
+    used.add(blocker);
+
+    const blockerCard = state.cards[blocker];
+    if (!blockerCard) return `${blocker} does not exist`;
+    if (blockerCard.controller !== defender) return `${blocker} is not yours to block with`;
+    if (!canBlock(state, blocker)) return `${blocker} cannot block`;
+
+    if (!attackers.includes(attacker)) return `${attacker} is not attacking`;
+    if (!canBlockAttacker(state, blocker, attacker)) return `${blocker} cannot block ${attacker}`;
+  }
+
+  if (!menaceSatisfied(state, blocks, attackers)) return 'menace requires at least two blockers';
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -527,5 +741,11 @@ function deepEqual(a: unknown, b: unknown): boolean {
  * the engine throws on. This cannot.
  */
 export function isLegal(state: GameState, action: Action): boolean {
+  // Combat declarations are set-valued: the space of legal ones is exponential in the
+  // board size, so legality for them is a predicate rather than membership in a list.
+  // `legalActions` still offers candidates; these validators are the definition.
+  if (action.kind === 'declareAttackers') return validateAttack(state, action.attackers) === null;
+  if (action.kind === 'declareBlockers') return validateBlocks(state, action.blocks) === null;
+
   return legalActions(state).some((candidate) => deepEqual(candidate, action));
 }

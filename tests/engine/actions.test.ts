@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { canCast, isLegal, legalActions, legalTargets } from '../../src/engine/actions';
+import { canCast, isLegal, legalActions, legalTargets, validateAttack, validateBlocks } from '../../src/engine/actions';
 import { cloneState, newInstance } from '../../src/engine/state';
 import type {
   Action,
@@ -402,7 +402,7 @@ function attacking(state: GameState, attackers: CardId[]): GameState {
 }
 
 describe('legalActions: combat', () => {
-  it('offers every subset of the eligible attackers, and nothing else', () => {
+  it('offers candidate attacks drawn only from eligible creatures', () => {
     const state = battlefield({
       you: [
         { power: 2, toughness: 2 },
@@ -415,8 +415,76 @@ describe('legalActions: combat', () => {
     });
     const attacks = legalActions(state)
       .filter((a) => a.kind === 'declareAttackers')
-      .map((a) => (a.kind === 'declareAttackers' ? a.attackers : []));
-    expect(attacks).toEqual([[], ['you0'], ['you4'], ['you0', 'you4']]);
+      .map((a) => (a.kind === 'declareAttackers' ? [...a.attackers].sort() : []));
+
+    // you1 is a defender, you2 is tapped, you3 is summoning sick without haste.
+    for (const set of attacks) {
+      for (const id of set) expect(['you0', 'you4']).toContain(id);
+    }
+    // Declining, and going all in, are always on offer — the bot must never miss
+    // lethal because the candidate list happened to sample around it.
+    expect(attacks).toContainEqual([]);
+    expect(attacks).toContainEqual(['you0', 'you4']);
+    expect(attacks).toContainEqual(['you0']);
+    expect(attacks).toContainEqual(['you4']);
+  });
+
+  it('does not enumerate the full subset space on a wide board', () => {
+    // Every subset of twelve attackers is 4096 actions, and legalActions is called
+    // from advancePhase on every pass. Legality is a predicate for a reason.
+    const state = battlefield({
+      you: Array.from({ length: 12 }, () => ({ power: 2, toughness: 2 })),
+      them: [],
+    });
+    const attacks = legalActions(state).filter((a) => a.kind === 'declareAttackers');
+    expect(attacks.length).toBeLessThan(40);
+  });
+
+  it('accepts any legal attack, including one it never listed as a candidate', () => {
+    const state = battlefield({
+      you: [
+        { power: 2, toughness: 2 },
+        { power: 2, toughness: 2 },
+        { power: 2, toughness: 2 },
+        { power: 2, toughness: 2 },
+      ],
+      them: [],
+    });
+    const arbitrary = { kind: 'declareAttackers', attackers: ['you1', 'you2'] } as const;
+    const listed = legalActions(state).some(
+      (a) => a.kind === 'declareAttackers' && a.attackers.join() === 'you1,you2',
+    );
+    expect(listed).toBe(false);
+    expect(isLegal(state, arbitrary)).toBe(true);
+  });
+
+  it('rejects an attack with a tapped, sick, defending or foreign creature', () => {
+    const state = battlefield({
+      you: [
+        { power: 2, toughness: 2 },
+        { power: 0, toughness: 4, keywords: ['defender'] },
+        { power: 3, toughness: 3, tapped: true },
+      ],
+      them: [{ power: 2, toughness: 2 }],
+    });
+    expect(validateAttack(state, ['you0'])).toBeNull();
+    expect(validateAttack(state, ['you1'])).not.toBeNull();
+    expect(validateAttack(state, ['you2'])).not.toBeNull();
+    expect(validateAttack(state, ['them0'])).not.toBeNull();
+    expect(validateAttack(state, ['you0', 'you0'])).not.toBeNull();
+  });
+
+  it('refuses a combat declaration while something is on the stack', () => {
+    // Declaring attackers is a turn-based action taken as the step begins, before
+    // any player has priority. A spell mid-resolution would otherwise be stranded
+    // into the following step.
+    const state = battlefield({ you: [{ power: 2, toughness: 2 }], them: [] });
+    const pending = cloneState(state);
+    pending.stack.push({
+      id: 'x', source: 'you0', controller: 0, effects: [], targets: null, isTriggered: false,
+    });
+    expect(legalActions(pending).some((a) => a.kind === 'declareAttackers')).toBe(false);
+    expect(validateAttack(pending, ['you0'])).not.toBeNull();
   });
 
   it('offers attackers only in the declare-attackers step', () => {
@@ -453,10 +521,17 @@ describe('legalActions: combat', () => {
         { power: 2, toughness: 2, keywords: ['flying'] },
       ],
     });
-    const blocks = legalActions(attacking(board, ['you0']))
+    const state = attacking(board, ['you0']);
+    const blocks = legalActions(state)
       .filter((a) => a.kind === 'declareBlockers')
       .map((a) => (a.kind === 'declareBlockers' ? a.blocks.map((b) => b.blocker) : []));
-    expect(blocks).toEqual([[], ['them1'], ['them2'], ['them1', 'them2']]);
+
+    // them0 is a ground creature and can never be offered against a flier.
+    expect(blocks.flat()).not.toContain('them0');
+    expect(blocks).toContainEqual(['them1']);
+    expect(blocks).toContainEqual(['them2']);
+    expect(validateBlocks(state, [{ blocker: 'them0', attacker: 'you0' }])).not.toBeNull();
+    expect(validateBlocks(state, [{ blocker: 'them1', attacker: 'you0' }])).toBeNull();
   });
 
   it('requires two blockers for menace, or none', () => {
@@ -467,10 +542,65 @@ describe('legalActions: combat', () => {
         { power: 1, toughness: 1 },
       ],
     });
-    const blocks = legalActions(attacking(board, ['you0']))
+    const state = attacking(board, ['you0']);
+    const blocks = legalActions(state)
       .filter((a) => a.kind === 'declareBlockers')
-      .map((a) => (a.kind === 'declareBlockers' ? a.blocks.map((b) => b.blocker) : []));
-    expect(blocks).toEqual([[], ['them0', 'them1']]);
+      .map((a) => (a.kind === 'declareBlockers' ? a.blocks.map((b) => b.blocker).sort() : []));
+
+    // The candidate list must include the double block. The bot only picks from
+    // here, so without it a menace creature would simply never be blocked.
+    expect(blocks).toContainEqual(['them0', 'them1']);
+    expect(blocks).toContainEqual([]);
+    // And a single blocker is never on offer, nor legal.
+    expect(blocks).not.toContainEqual(['them0']);
+    expect(validateBlocks(state, [{ blocker: 'them0', attacker: 'you0' }])).not.toBeNull();
+    expect(validateBlocks(state, [
+      { blocker: 'them0', attacker: 'you0' },
+      { blocker: 'them1', attacker: 'you0' },
+    ])).toBeNull();
+  });
+
+  it('does not enumerate the full assignment space on a wide board', () => {
+    // Eight blockers against eight attackers is 9^8 = 43 million assignments, walked
+    // on every legalActions call. This is the case the layout study exists for.
+    const board = battlefield({
+      you: Array.from({ length: 8 }, () => ({ power: 2, toughness: 2 })),
+      them: Array.from({ length: 8 }, () => ({ power: 2, toughness: 2 })),
+    });
+    const state = attacking(board, ['you0', 'you1', 'you2', 'you3', 'you4', 'you5', 'you6', 'you7']);
+
+    const started = performance.now();
+    const blocks = legalActions(state).filter((a) => a.kind === 'declareBlockers');
+    const elapsed = performance.now() - started;
+
+    expect(blocks.length).toBeLessThan(200);
+    expect(elapsed).toBeLessThan(50);
+  });
+
+  it('accepts a legal block it never listed as a candidate', () => {
+    const board = battlefield({
+      you: [{ power: 2, toughness: 2 }, { power: 2, toughness: 2 }],
+      them: [{ power: 2, toughness: 2 }, { power: 2, toughness: 2 }],
+    });
+    const state = attacking(board, ['you0', 'you1']);
+    // Both blockers ganging up on the second attacker is legal, and deliberately
+    // not in the candidate list.
+    expect(validateBlocks(state, [
+      { blocker: 'them0', attacker: 'you1' },
+      { blocker: 'them1', attacker: 'you1' },
+    ])).toBeNull();
+  });
+
+  it('rejects one creature blocking twice', () => {
+    const board = battlefield({
+      you: [{ power: 2, toughness: 2 }, { power: 2, toughness: 2 }],
+      them: [{ power: 2, toughness: 2 }],
+    });
+    const state = attacking(board, ['you0', 'you1']);
+    expect(validateBlocks(state, [
+      { blocker: 'them0', attacker: 'you0' },
+      { blocker: 'them0', attacker: 'you1' },
+    ])).not.toBeNull();
   });
 
   it('never offers a tapped creature as a blocker', () => {
