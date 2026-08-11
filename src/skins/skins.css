@@ -1,0 +1,85 @@
+/*
+ * Table skins.
+ *
+ * A skin is a set of custom properties on the table element and nothing else — no
+ * component knows which skin is active. Adding a fourth costs one block below.
+ *
+ * Values are the ones validated in docs/prototypes/skins.html at 390px.
+ *
+ * Two rules learned from the prototype and worth keeping:
+ *   - "spent" mana must not be expressed by opacity alone. Fading toward a light
+ *     ground makes a spent gem invisible on the light skins, so it drains and keeps
+ *     an outlined ring instead.
+ *   - The table is a physical object, not a document. It never inherits the page
+ *     theme; the player picks the skin explicitly.
+ */
+
+.table {
+  /* Felt — the default. Art glows against it; worst of the three in daylight. */
+  --felt: #15100d;
+  --felt-2: #1e1712;
+  --zone: #241b15;
+  --edge: #3b2e24;
+  --edge-hi: #584435;
+  --ink: #e9e0d0;
+  --ink-2: #b6a793;
+  --ink-3: #7e7264;
+  --acc: #c9a227;
+  --acc-on: #1a1204;
+  --shade: rgba(0, 0, 0, 0.42);
+  --gemring: rgba(0, 0, 0, 0.5);
+  --tile-border: #584435;
+  --badge: rgba(8, 5, 3, 0.86);
+  --badge-ink: #e9e0d0;
+}
+
+.table[data-skin='parchment'] {
+  /* Warm paper. Art sits on a ground that shares its palette. */
+  --felt: #e4d8c0;
+  --felt-2: #f1e9d9;
+  --zone: #fffcf4;
+  --edge: #c6b294;
+  --edge-hi: #a88f69;
+  --ink: #2b2117;
+  --ink-2: #5e4f3c;
+  --ink-3: #8e7e67;
+  --acc: #9c6f16;
+  --acc-on: #fff8e6;
+  --shade: rgba(90, 70, 40, 0.2);
+  --gemring: rgba(74, 56, 22, 0.55);
+  --tile-border: #c6b191;
+  --badge: rgba(28, 20, 10, 0.84);
+  --badge-ink: #fbf6ea;
+}
+
+.table[data-skin='slate'] {
+  /* Cool neutral. Highest text contrast, crispest zone separation. */
+  --felt: #dfe3e8;
+  --felt-2: #edf0f3;
+  --zone: #ffffff;
+  --edge: #c2c9d2;
+  --edge-hi: #a6b0bc;
+  --ink: #161c24;
+  --ink-2: #4a5462;
+  --ink-3: #7b8794;
+  --acc: #2c6ea8;
+  --acc-on: #ffffff;
+  --shade: rgba(30, 45, 60, 0.18);
+  --gemring: rgba(22, 34, 48, 0.5);
+  --tile-border: #c2c9d2;
+  --badge: rgba(12, 18, 26, 0.84);
+  --badge-ink: #f4f7fa;
+}
+
+/* Mana colors are identity, not theme — they never change between skins. */
+.table {
+  --mana-w: #f3e9ce;
+  --mana-u: #3a7fc4;
+  --mana-b: #3a322c;
+  --mana-r: #c4402e;
+  --mana-g: #3e8b4c;
+  --mana-c: #a99b8b;
+
+  --danger: #b4432b;
+  --life-gain: #4e8a4c;
+}
