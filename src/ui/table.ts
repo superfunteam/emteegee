@@ -83,6 +83,12 @@ export interface UiState {
   blockingPairs: Map<CardId, CardId>;
   actLabel: string;
   actEnabled: boolean;
+  /**
+   * Hidden entirely while a prompt owns the screen. The button's whole contract is
+   * that it says what the next tap does; a disabled one wearing a noun ("Your opening
+   * hand") behind a modal says nothing and only competes with the panel's own buttons.
+   */
+  actHidden: boolean;
   hint: string | null;
   speech: string | null;
 }
@@ -128,6 +134,7 @@ export function createTable(callbacks: TableCallbacks): TableView {
 
     act.textContent = ui.actLabel;
     act.disabled = !ui.actEnabled;
+    act.hidden = ui.actHidden;
     act.classList.toggle('act--waiting', !ui.actEnabled);
 
     setRibbon(ui.speech);

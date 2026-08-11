@@ -7,13 +7,14 @@
 
 import type { CardDef, GameState, OracleId, PlayerId } from './engine/types';
 import { createGame, def } from './engine/state';
+import { beginMulligans } from './engine/rules';
 import { DECKS } from './decks';
 import { deckList, type Deck } from './decks/types';
 import type { Tier } from './bot/magician';
 import { createTable } from './ui/table';
 import { Session, YOU, THEM } from './ui/session';
 import { attachGestures } from './ui/gestures';
-import { listenForZoom, showCard, showZone, showLands as showLandsOverlay, closeOverlay } from './ui/overlay';
+import { createPrompts, listenForZoom, showCard, showZone, closeOverlay } from './ui/overlay';
 import {
   titleScreen, deckScreen, resultScreen, settingsScreen,
   applySkin, loadSkin, type Skin,
@@ -29,11 +30,15 @@ if (!app) throw new Error('emteegee: #app is missing from index.html');
 let skin: Skin = loadSkin();
 let activeSession: Session | null = null;
 let detachGestures: (() => void) | null = null;
+let detachZoom: (() => void) | null = null;
 
 function show(node: HTMLElement): void {
   closeOverlay();
   detachGestures?.();
   detachGestures = null;
+  // The zoom listener captures the table it renders into, so it has to die with it.
+  detachZoom?.();
+  detachZoom = null;
   activeSession = null;
   app!.replaceChildren(node);
   applySkin(skin, app!);
@@ -63,13 +68,15 @@ function startMatch(deck: Deck, tier: Tier): void {
   const theirs = others[Math.floor(Math.random() * others.length)] ?? deck;
 
   const seed = Math.floor(Math.random() * 0x7fffffff);
-  const initial = createGame(CARDS, deckList(deck), deckList(theirs), seed);
+  // `createGame` deals straight into a playable first main phase. A real match takes one
+  // more step first: turn zero, where both players decide their opening hands.
+  const initial = beginMulligans(createGame(CARDS, deckList(deck), deckList(theirs), seed)).state;
 
   const table = createTable({
     onTileTap: card => activeSession?.tileTap(card),
     onRailTap: player => activeSession?.railTap(player),
     onHandTap: card => activeSession?.handTap(card),
-    onManaTap: player => showLands(player),
+    onManaTap: player => activeSession?.manaTap(player),
     onZoneTap: (zone, player) => {
       if (activeSession) showZone(table.root, activeSession.gameState, zone, player);
     },
@@ -80,23 +87,19 @@ function startMatch(deck: Deck, tier: Tier): void {
     initial,
     tier,
     table,
+    prompts: createPrompts(table.root),
     onGameOver: winner => showResult(winner, deck, theirs, tier, session),
   });
 
-  function showLands(player: PlayerId): void {
-    if (!activeSession) return;
-    // Long-pressing the mana row opens the real lands, which is where the abstraction
-    // gives way: the gems are a summary, these are the cards.
-    showLandsOverlay(table.root, activeSession.gameState, player);
-  }
-
   show(table.root);
   activeSession = session;
-  listenForZoom(table.root);
+  detachZoom = listenForZoom(table.root);
 
   detachGestures = attachGestures(table.root, {
+    // Long-pressing the mana row opens the real lands, which is where the abstraction
+    // gives way: the gems are a summary, these are the cards you tap.
     onSwipeUp: card => session.swipeUp(card),
-    onLongPress: () => showLands(YOU),
+    onLongPress: () => session.manaTap(YOU),
   });
 
   session.start();

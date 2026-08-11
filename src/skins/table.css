@@ -561,8 +561,324 @@
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.1em;
-  color: #7e7264;
+  color: var(--ink-3);
 }
+
+/* ---------- panels ---------- */
+
+/*
+ * The shared body of every overlay that is more than one picture: the zone browsers,
+ * and the four decisions the engine can ask for. One layout, so a scry and an opening
+ * hand feel like the same object rather than two screens that happen to both be modal.
+ *
+ * A panel is a *sheet*, with its own ground. That is not decoration: the scrim behind
+ * it is deliberately near-black on every skin so the art it dims reads as lit from
+ * behind, while `--ink` follows the skin and goes dark on parchment and slate. Text
+ * laid straight onto the scrim disappears on two skins out of three. Sitting it on
+ * `--zone` puts ink back on the surface the token was chosen against.
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 16px 14px;
+  border-radius: 14px;
+  background: var(--zone);
+  border: 1px solid var(--edge-hi);
+  box-shadow: 0 18px 46px rgb(0 0 0 / 0.55);
+  animation: pop 0.26s cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
+
+.panel__title {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  color: var(--ink);
+  text-align: center;
+}
+
+.panel__caps {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.panel__note {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  text-align: center;
+  max-width: 300px;
+}
+
+.panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.panel__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+  padding: 4px;
+}
+
+.panel__thumb {
+  width: 100%;
+  border-radius: 5px;
+  display: block;
+  border: 1px solid var(--edge);
+}
+
+.panel__empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 28px 0;
+}
+
+.panel__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.panel__button {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--acc);
+  background: var(--acc);
+  color: var(--acc-on);
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.16s, opacity 0.2s;
+}
+
+.panel__button:active { transform: scale(0.96); }
+.panel__button:disabled { opacity: 0.4; cursor: default; }
+
+.panel__button--quiet {
+  background: transparent;
+  color: var(--ink-2);
+  border-color: var(--edge-hi);
+}
+
+/* ---------- a card as a choice ---------- */
+
+/*
+ * The whole card is the tap target. A picker built from small checkboxes beside big
+ * cards is a picker nobody hits on a phone, and every card here is already well past
+ * 44px in both directions.
+ */
+.pick {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  min-height: 44px;
+  min-width: 44px;
+  border: 0;
+  background: none;
+  display: block;
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.25, 1.1), filter 0.18s;
+}
+
+.pick__face {
+  position: relative;
+  display: block;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  box-shadow: 0 2px 8px var(--shade);
+  transition: box-shadow 0.18s;
+}
+
+.pick__face img { width: 100%; display: block; }
+
+/* The same corner the board tiles put it in, so the number is where the eye expects. */
+.pick__pt {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--badge);
+  color: var(--badge-ink);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.pick__caption {
+  display: block;
+  font-size: 10.5px;
+  line-height: 1.3;
+  padding-top: 4px;
+  color: var(--ink-2);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pick--on { transform: translateY(-6px); }
+.pick--on .pick__face { box-shadow: 0 0 0 3px var(--acc), 0 6px 14px var(--shade); }
+
+/* A tapped land sits at the same angle it would on a real table. */
+.pick--spent { filter: saturate(0.55) brightness(0.62); transform: rotate(7deg); }
+
+/* A blocker that died to a trick before damage. It still has to be in the order. */
+.pick--gone { filter: grayscale(1) brightness(0.5); opacity: 0.7; }
+
+.pick__mark {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--acc);
+  color: var(--acc-on);
+  border: 1px solid var(--felt);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+/* ---------- the opening hand, the lands ---------- */
+
+/* Seven cards wrap to two rows at 340px, which is the whole hand visible at once. */
+.panel__row .pick { width: 68px; }
+.panel__grid .pick { width: 100%; }
+
+/* Blockers are shown as board art with a name under them, matching their tiles. */
+.panel__row--tiles .pick { width: 96px; }
+
+.panel__float {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--zone);
+  border: 1px solid var(--edge-hi);
+}
+
+.panel__floatLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ---------- scry ---------- */
+
+.scry {
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scry__card {
+  width: 100%;
+  display: block;
+  border-radius: 5px;
+  border: 1px solid var(--edge);
+  box-shadow: 0 2px 8px var(--shade);
+}
+
+.scry__buttons { display: flex; gap: 4px; }
+
+.chip {
+  flex: 1;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 4px;
+  border-radius: 8px;
+  border: 1px solid var(--edge-hi);
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.16s, color 0.16s, border-color 0.16s;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: var(--acc-on);
+  font-weight: 700;
+}
+
+/* ---------- damage assignment order ---------- */
+
+.panel__attacker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--zone);
+  border: 1px solid var(--danger);
+}
+
+.panel__attackerArt {
+  width: 84px;
+  aspect-ratio: 626 / 457;
+  object-fit: cover;
+  border-radius: 5px;
+  display: block;
+  background: var(--edge);
+}
+
+.panel__attackerName {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+/* ---------- text fallback for a missing image ---------- */
+
+.panel__fallback {
+  max-width: 260px;
+  padding: 18px;
+  border-radius: 11px;
+  background: var(--zone);
+  border: 1px solid var(--edge-hi);
+  color: var(--ink);
+  text-align: left;
+}
+
+.panel__fallbackName { font-family: var(--font-serif); font-size: 19px; margin-bottom: 4px; }
+.panel__fallbackType { font-size: 12px; color: var(--ink-3); margin-bottom: 10px; }
+.panel__fallbackText { font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.panel__fallbackPt { margin-top: 10px; font-family: var(--font-mono); font-size: 15px; }
 
 /* ---------- hints ---------- */
 

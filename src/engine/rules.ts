@@ -33,6 +33,18 @@
  * they hold priority hands it over, and a player passing when they do not is
  * the second pass in succession: the stack resolves, or the phase advances.
  *
+ * Two decisions outrank the phase and hold priority themselves: a pending scry,
+ * which nobody else can answer, and the pre-game mulligan, where priority is the
+ * only record of whose opening hand is being decided.
+ *
+ * ## Before turn one
+ *
+ * {@link beginMulligans} winds a dealt game back to turn zero — the pre-game,
+ * see `MULLIGAN_TURN` in `actions.ts` — where the only legal moves are `mulligan`
+ * and `keepHand`. The human decides, then the Magician, and the second keep
+ * starts turn one at `main1`. `createGame` still deals straight into a playable
+ * game, so nothing that does not want a mulligan step has to have one.
+ *
  * ## Pacing
  *
  * Spec §9.4: the game skips only those stops where advancing is the sole legal

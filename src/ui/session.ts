@@ -14,13 +14,14 @@
 
 import type { Action, CardId, GameEvent, GameState, PlayerId, TargetSelection } from '../engine/types';
 import { def, inst, isCreature, opponentOf } from '../engine/state';
-import { legalActions } from '../engine/actions';
+import { inMulligan, legalActions } from '../engine/actions';
 import { reduce } from '../engine/rules';
 import { chooseAction, type Tier } from '../bot/magician';
 import { speechFor } from '../bot/personality';
 import { Animator } from './animator';
 import { sound } from '../audio/kit';
 import type { TableView, UiState } from './table';
+import type { PromptView } from './overlay';
 import { hintFor } from './hints';
 
 export const YOU: PlayerId = 0;
@@ -33,18 +34,30 @@ type Mode =
   | { kind: 'attacking'; picked: Set<CardId> }
   | { kind: 'blocking'; blocker: CardId | null; pairs: Map<CardId, CardId> };
 
+/**
+ * A question the engine is waiting on, currently in front of the player.
+ *
+ * Distinct from `Mode`, which is something the player started. A prompt is something
+ * the *game* started: it appears without being asked for, it is the only thing that can
+ * be done while it is up, and until it is answered the big button has nothing to say.
+ */
+type Prompt = 'mulligan' | 'scry' | 'order';
+
 export interface SessionOptions {
   initial: GameState;
   tier: Tier;
   table: TableView;
+  prompts: PromptView;
   onGameOver(winner: PlayerId): void;
 }
 
 export class Session {
   private state: GameState;
   private mode: Mode = { kind: 'idle' };
+  private prompt: Prompt | null = null;
   private animator: Animator;
   private table: TableView;
+  private prompts: PromptView;
   private tier: Tier;
   private onGameOver: (winner: PlayerId) => void;
   private speech: string | null = null;
@@ -54,6 +67,7 @@ export class Session {
   constructor(opts: SessionOptions) {
     this.state = opts.initial;
     this.table = opts.table;
+    this.prompts = opts.prompts;
     this.tier = opts.tier;
     this.onGameOver = opts.onGameOver;
     this.animator = new Animator(event => this.renderEvent(event));
@@ -61,6 +75,7 @@ export class Session {
 
   start(): void {
     this.render();
+    this.askIfNeeded();
     void this.runBotIfNeeded();
   }
 
@@ -159,6 +174,25 @@ export class Session {
     if (!legal) { sound.play('illegal', { gain: 0.5 }); return; }
 
     void this.dispatch({ kind: 'declareAttackers', attackers: [card] });
+  }
+
+  /**
+   * The mana row, tapped or long-pressed: open the real lands.
+   *
+   * Deliberately not gated on priority. Looking at what you have is not a move, and the
+   * lands themselves are only tappable when `legalActions` says so.
+   */
+  manaTap(player: PlayerId): void {
+    sound.unlock();
+    this.prompts.lands(this.state, player, card => this.tapLand(card));
+  }
+
+  /** A land tapped inside that panel. Floats its mana; the panel repaints from render. */
+  private tapLand(card: CardId): void {
+    if (this.blocked()) return;
+    const legal = legalActions(this.state).some(a => a.kind === 'tapLand' && a.card === card);
+    if (!legal) { sound.play('illegal', { gain: 0.5 }); return; }
+    void this.dispatch({ kind: 'tapLand', card });
   }
 
   /** The one big button. Its label already told the player what this does. */
@@ -286,6 +320,64 @@ export class Session {
     setTimeout(() => { this.hint = null; this.render(); }, 2600);
   }
 
+  /* ------------------------------------------------------------- prompts */
+
+  /**
+   * Put the question the engine is waiting on in front of the player, if there is one.
+   *
+   * Three of the game's decisions arrive rather than being reached for: the opening
+   * hand, the cards a scry looked at, and the order an attacker assigns damage in. Each
+   * is asked from the same place — the state itself — rather than from whichever code
+   * path happened to cause it, so a scry set up by a trigger and a scry set up by a
+   * spell open the same panel by the same route.
+   *
+   * Called after every action and after the bot's turn. A prompt already open is left
+   * alone: nothing can change the state underneath it, because answering it is the only
+   * legal move there is.
+   */
+  private askIfNeeded(): void {
+    if (this.prompt !== null) return;
+    if (this.state.winner !== null) return;
+    if (this.state.priority !== YOU) return;
+
+    if (inMulligan(this.state)) {
+      this.prompt = 'mulligan';
+      this.prompts.mulligan(
+        this.state, YOU,
+        toBottom => this.answer({ kind: 'keepHand', toBottom }),
+        () => this.answer({ kind: 'mulligan' }),
+      );
+      this.render();
+      return;
+    }
+
+    if (this.state.pendingScry?.player === YOU) {
+      this.prompt = 'scry';
+      this.prompts.scry(this.state, toBottom => this.answer({ kind: 'scryDecision', toBottom }));
+      this.render();
+      return;
+    }
+
+    // Ordering hands priority to the defender (see `orderBlockers` in rules.ts), so at
+    // most one attacker is ordered per combat and this asks about the first one the
+    // generator offers. With two attackers each blocked twice, the second keeps the
+    // order its blockers were declared in.
+    const order = legalActions(this.state).find(a => a.kind === 'orderBlockers');
+    if (order) {
+      const attacker = order.attacker;
+      this.prompt = 'order';
+      this.prompts.blockerOrder(this.state, attacker, chosen =>
+        this.answer({ kind: 'orderBlockers', attacker, order: chosen }));
+      this.render();
+    }
+  }
+
+  /** A panel reported its decision. The panel closed itself; this plays it. */
+  private answer(action: Action): void {
+    this.prompt = null;
+    void this.dispatch(action);
+  }
+
   /* ------------------------------------------------------------ the loop */
 
   private async dispatch(action: Action): Promise<void> {
@@ -313,6 +405,9 @@ export class Session {
       return;
     }
 
+    // Before the bot runs: a mulligan and a scry both hand priority straight back, and
+    // the player should see the next question rather than a table they cannot act on.
+    this.askIfNeeded();
     await this.runBotIfNeeded();
   }
 
@@ -345,7 +440,12 @@ export class Session {
     if (this.state.winner !== null) {
       sound.play(this.state.winner === YOU ? 'win' : 'lose');
       this.onGameOver(this.state.winner);
+      return;
     }
+
+    // The Magician's block is what creates a damage order to choose, so the question
+    // arrives here rather than out of anything the player did.
+    this.askIfNeeded();
   }
 
   /** Phases that ask the player for a combat decision put them straight into it. */
@@ -385,8 +485,15 @@ export class Session {
     this.render();
   }
 
+  /**
+   * The table and whatever overlay is open are painted from the same state, in the same
+   * call. A land tapped in the lands panel has to visibly tap *in that panel*, and the
+   * only way that can never drift from the board behind it is for both to be a function
+   * of the same `GameState` at the same moment.
+   */
   private render(): void {
     this.table.patch(this.state, this.uiState());
+    this.prompts.refresh(this.state);
   }
 
   private uiState(): UiState {
@@ -398,6 +505,7 @@ export class Session {
       blockingPairs: this.mode.kind === 'blocking' ? this.mode.pairs : new Map(),
       actLabel: this.actLabel(),
       actEnabled: this.actEnabled(),
+      actHidden: this.prompt !== null,
       hint: this.hint,
       speech: this.speech,
     };
@@ -454,6 +562,15 @@ export class Session {
     if (this.state.winner !== null) return 'Game over';
     if (this.state.priority === THEM) return 'The Magician is thinking';
 
+    // A prompt is up: the panel in front of the player holds every move there is, and
+    // the button must not offer one. `pass` is not even legal in two of these states.
+    switch (this.prompt) {
+      case 'mulligan': return 'Your opening hand';
+      case 'scry': return 'Top or bottom';
+      case 'order': return 'Choose the order';
+      case null: break;
+    }
+
     switch (this.mode.kind) {
       case 'targeting': return 'Cancel';
       case 'attacking': {
@@ -477,12 +594,14 @@ export class Session {
   }
 
   private actEnabled(): boolean {
+    if (this.prompt !== null) return false;
     return this.state.winner === null && this.state.priority === YOU && !this.busy;
   }
 
-  /** True while the engine or the animator owns the board. */
+  /** True while the engine, the animator, or an unanswered question owns the board. */
   private blocked(): boolean {
     if (this.animator.busy) { this.animator.skip(); return true; }
+    if (this.prompt !== null) return true;
     return this.busy || this.state.winner !== null || this.state.priority !== YOU;
   }
 
