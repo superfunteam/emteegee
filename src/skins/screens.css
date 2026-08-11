@@ -26,73 +26,117 @@
 
 /* ---------- title ---------- */
 
+/*
+ * The cover.
+ *
+ * Deliberately dark in every skin: the mark is carved stone lit by mana-glow on pure
+ * black, and it is the one screen allowed to commit to a single look — a game's cover
+ * is art direction, not chrome. The gradient hands the pure black of the image off to
+ * the felt tones the rest of the app lives in.
+ */
 .title {
   justify-content: center;
   align-items: center;
   text-align: center;
-  gap: 6px;
+  gap: 0;
+  background:
+    radial-gradient(120% 55% at 50% 30%, #000 0%, #000 55%, #100c08 100%);
+  color: #e9e0d0;
 }
 
-.title__mark {
-  font-family: var(--font-serif);
-  font-size: clamp(38px, 13vw, 58px);
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  margin: 0;
-  font-weight: 400;
+.title__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: hero-in 0.7s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
 }
 
-.title__mark em { font-style: italic; color: var(--acc); }
+.title__logo {
+  width: min(88vw, 420px);
+  height: auto;
+  display: block;
+  /* The image's own black dissolves into the backdrop; the glow does the framing.
+     The mask feathers the photo's edges so no rectangle ghosts against the gradient
+     where its black and the backdrop's differ by a shade of noise. */
+  filter: drop-shadow(0 18px 44px rgb(20 220 120 / 0.10));
+  -webkit-mask-image: radial-gradient(ellipse 92% 88% at 50% 50%, #000 62%, transparent 99%);
+  mask-image: radial-gradient(ellipse 92% 88% at 50% 50%, #000 62%, transparent 99%);
+}
 
 .title__tag {
-  font-size: 14px;
-  color: var(--ink-2);
-  margin: 0 0 28px;
+  font-size: 14.5px;
+  color: #b6a793;
+  margin: 6px 0 0;
   max-width: 30ch;
   line-height: 1.5;
 }
 
-.title__play {
-  min-width: 200px;
-  padding: 0 26px;
-  height: 52px;
-  border-radius: 999px;
-  background: var(--acc);
-  color: var(--acc-on);
-  font-size: 17px;
-  font-weight: 600;
-  box-shadow: 0 6px 20px var(--shade);
-  transition: transform 0.16s;
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
 }
 
-.title__play:active { transform: scale(0.97); }
-
-.title__row {
+.title__actions {
   display: flex;
-  gap: 10px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 34px;
+  animation: hero-in 0.7s 0.15s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
 }
 
-.title__link {
-  font-size: 13px;
-  color: var(--ink-3);
-  border: 1px solid var(--edge-hi);
+/*
+ * The one big verb. Gold like every primary action in the game, sized for a thumb
+ * that has not read anything yet, with a green-tinted halo borrowed from the mark's
+ * own light so the button reads as part of the cover rather than pasted on it.
+ */
+.title__play {
+  min-width: 232px;
+  height: 58px;
+  padding: 0 30px;
   border-radius: 999px;
-  padding: 0 16px;
-  height: 40px;
-  min-height: 40px;
+  border: 1px solid #e3ba45;
+  background: #c9a227;
+  color: #1a1204;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow:
+    0 8px 26px rgb(0 0 0 / 0.6),
+    0 2px 40px rgb(60 200 120 / 0.14);
+  transition: transform 0.15s, box-shadow 0.2s;
 }
+
+.title__play:active {
+  transform: scale(0.96);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.6);
+}
+
+.title__ghost {
+  min-width: 168px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid #4a3c2e;
+  background: rgb(255 255 255 / 0.03);
+  color: #b6a793;
+  font-size: 14px;
+  transition: border-color 0.2s, color 0.2s, transform 0.15s;
+}
+
+.title__ghost:active { transform: scale(0.97); }
 
 .title__foot {
   margin-top: auto;
-  padding-top: 28px;
+  padding-top: 30px;
   font-size: 11px;
-  color: var(--ink-3);
+  color: #6f6355;
   line-height: 1.6;
-  max-width: 40ch;
+  max-width: 42ch;
+  animation: hero-in 0.7s 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title__hero, .title__actions, .title__foot { animation: none; }
 }
 
 /* ---------- headings ---------- */

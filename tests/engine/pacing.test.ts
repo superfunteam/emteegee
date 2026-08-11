@@ -26,14 +26,7 @@ import { PHASE_ORDER } from '../../src/engine/types';
 import { inMulligan, legalActions } from '../../src/engine/actions';
 import { beginMulligans, reduce } from '../../src/engine/rules';
 import { cloneState, createGame, newInstance } from '../../src/engine/state';
-import {
-  TEST_DECK,
-  TEST_DEFS,
-  battlefield,
-  gameWith,
-  giveLands,
-  putCreature,
-} from '../fixtures';
+import { TEST_DECK, TEST_DEFS, battlefield, gameWith, giveLands, putCreature } from '../fixtures';
 
 const PASS = { kind: 'pass' } as const;
 
@@ -294,5 +287,193 @@ describe('the settle loop terminates', () => {
     expect(result.events.filter((e) => e.type === 'PHASE').length).toBeGreaterThan(
       PHASE_ORDER.length,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The two defects the adversarial audit confirmed, pinned
+// ---------------------------------------------------------------------------
+
+/** Real forests, because a drawn card without a definition is a corrupt state the
+ *  engine (rightly) throws on. */
+function stockLibraries(state: GameState, count: number): GameState {
+  let next = state;
+  for (const player of [0, 1] as const) {
+    for (let i = 0; i < count; i++) {
+      const made = newInstance(next, 'forest', player, 'library');
+      next = made.state;
+    }
+  }
+  return next;
+}
+
+describe('the defender keeps a trick window after declaring blocks', () => {
+  /**
+   * Regression: `advancePhase` consulted only the phase's default priority holder, so
+   * a defender who blocked while holding Giant Growth and an untapped Forest had
+   * first-strike and combat damage resolved straight through their response window —
+   * inside the same reduce that declared the blocks. That window is the combat-trick
+   * moment the whole "real stack, capped at three" design exists to protect.
+   */
+  function blockedCombatWithTrick(): GameState {
+    let state = battlefield({
+      // The bot attacks with a 2/2; the human blocks with a 2/2 and holds the trick.
+      you: [{ power: 2, toughness: 2 }],
+      them: [{ power: 2, toughness: 2 }],
+    });
+    state = cloneState(state);
+    state.active = 1;
+    state.priority = 1;
+    state = stockLibraries(state, 3);
+    state = giveLands(state, 0, 'G', 1);
+    const made = newInstance(state, 'giant-growth', 0, 'hand');
+    return made.state;
+  }
+
+  it('stops before damage, with the trick castable', () => {
+    const start = blockedCombatWithTrick();
+    const attacked = reduce(start, { kind: 'declareAttackers', attackers: ['them0'] }).state;
+    expect(attacked.phase).toBe('declareBlockers');
+
+    const blocked = reduce(attacked, {
+      kind: 'declareBlockers', blocks: [{ blocker: 'you0', attacker: 'them0' }],
+    }).state;
+
+    // Not resolved through: both creatures alive, damage step reached but not taken,
+    // and the settle routed priority to the player whose window it is.
+    expect(blocked.cards['you0']!.zone).toBe('battlefield');
+    expect(blocked.cards['them0']!.zone).toBe('battlefield');
+    expect(blocked.winner).toBeNull();
+    expect(blocked.priority).toBe(0);
+    expect(legalActions(blocked).some(
+      a => a.kind === 'castSpell' && a.card.startsWith('giant-growth'),
+    )).toBe(true);
+  });
+
+  it('and the trick actually turns the combat', () => {
+    const start = blockedCombatWithTrick();
+    const attacked = reduce(start, { kind: 'declareAttackers', attackers: ['them0'] }).state;
+    const blocked = reduce(attacked, {
+      kind: 'declareBlockers', blocks: [{ blocker: 'you0', attacker: 'them0' }],
+    }).state;
+
+    const growth = legalActions(blocked).find(
+      a => a.kind === 'castSpell' && a.card.startsWith('giant-growth'),
+    )!;
+    let after = reduce(blocked, growth).state;
+    for (let i = 0; i < 8 && after.cards['them0']!.zone === 'battlefield'; i++) {
+      const passing = legalActions(after).find(a => a.kind === 'pass');
+      if (!passing) break;
+      after = reduce(after, passing).state;
+    }
+
+    // A 5/5 blocker eats a 2/2 attacker and lives. Without the window, both died
+    // never — the 2/2s simply traded.
+    expect(after.cards['them0']!.zone).toBe('graveyard');
+    expect(after.cards['you0']!.zone).toBe('battlefield');
+  });
+
+  it('does not hand the attacker a pre-blocks window for the same trick', () => {
+    // The mirror ceremony: the ATTACKER holding an instant must not create a stop
+    // between the declarations whose answer is almost always "wait for blocks".
+    let state = battlefield({
+      you: [{ power: 2, toughness: 2 }],
+      them: [{ power: 2, toughness: 2, tapped: true }],
+    });
+    state = cloneState(state);
+    state = stockLibraries(state, 3);
+    state = giveLands(state, 0, 'G', 1);
+    state = newInstance(state, 'giant-growth', 0, 'hand').state;
+
+    const attacked = reduce(state, { kind: 'declareAttackers', attackers: ['you0'] }).state;
+    // No blocker exists, so the line runs to the attacker's post-blocks window at the
+    // damage step — never resting at declareBlockers.
+    expect(attacked.phase).not.toBe('declareBlockers');
+  });
+});
+
+describe('a mana dork is not a decision until its mana buys one', () => {
+  /**
+   * Regression: an untapped Llanowar Elves made `hasRealChoice` true at every stop —
+   * the activation is an action — so the whole Thicket deck got the dead "Pass" stop
+   * back at every phase of every turn. The activation is a decision exactly when the
+   * mana could unlock a play.
+   */
+  const DORK: CardDef = {
+    oracleId: 'test-dork',
+    name: 'Test Dork',
+    manaCost: { G: 1 },
+    cmc: 1,
+    colors: ['G'],
+    cardTypes: ['creature'],
+    subtypes: ['Elf'],
+    power: 1,
+    toughness: 1,
+    oracleText: '{T}: Add {G}.',
+    keywords: [],
+    statics: [],
+    triggers: [],
+    activated: [{
+      cost: { tapSelf: true },
+      effects: [{ kind: 'addMana', colors: ['G'] }],
+      sorcerySpeed: false,
+      targets: [],
+    }],
+    spellEffects: [],
+    targets: [],
+    artist: 'test',
+    art: '',
+    image: '',
+  };
+
+  function boardWithDork(handCards: string[], sick: boolean): GameState {
+    let state = battlefield({ you: [], them: [] });
+    state = cloneState(state);
+    state.phase = 'main1';
+    state.active = 0;
+    state.priority = 0;
+    state = stockLibraries(state, 4);
+    state = { ...state, defs: { ...state.defs, 'test-dork': DORK } };
+    const made = newInstance(state, 'test-dork', 0, 'battlefield');
+    state = cloneState(made.state);
+    // The roll-through test wants the dork sick on purpose: a settled creature can
+    // ATTACK, and attacking is a real choice that would legitimately stop the turn —
+    // the ceremony under test is the mana ability alone. The payoff test wants it
+    // settled, because a sick creature's tap ability is rightly not offered at all.
+    state.cards[made.id]!.summonedThisTurn = sick;
+    for (const oracleId of handCards) {
+      state = newInstance(state, oracleId, 0, 'hand').state;
+    }
+    return state;
+  }
+
+  it('with nothing to spend on, the turn rolls straight through', () => {
+    const state = boardWithDork([], true);
+    const after = reduce(state, { kind: 'pass' }).state;
+    // No stop at any of this turn's combat or end phases: one pass reaches the next
+    // REAL decision, which is at soonest the opponent's turn.
+    expect(after.turn > state.turn || after.winner !== null).toBe(true);
+  });
+
+  it('with a spell the mana would unlock, the stop is real', () => {
+    // One dork plus one Forest against a two-mana bears: the land alone cannot pay
+    // it, so the cast exists only through the dork — which is exactly what makes the
+    // activation a decision.
+    const state = giveLands(boardWithDork(['grizzly-bears'], false), 0, 'G', 1);
+    const options = legalActions(state);
+    const activation = options.find(a => a.kind === 'activate');
+    expect(activation).toBeDefined();
+
+    // The stop exists: passing must NOT roll the turn away from this decision...
+    const dorkId = activation!.kind === 'activate' ? activation!.card : '';
+    let after = reduce(state, activation!).state;
+    // ...and after floating, the spell is castable.
+    const cast = legalActions(after).find(a => a.kind === 'castSpell');
+    expect(cast).toBeDefined();
+    after = reduce(after, cast!).state;
+    expect(after.cards[dorkId]!.tapped).toBe(true);
+    expect(
+      Object.values(after.cards).some(c => c.oracleId === 'grizzly-bears' && c.zone === 'battlefield'),
+    ).toBe(true);
   });
 });

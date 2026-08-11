@@ -185,9 +185,66 @@ function isNoOp(action: Action): boolean {
   }
 }
 
+/**
+ * Is this activation nothing but mana?
+ *
+ * A Llanowar Elves' tap ability is an action, but it is not a *decision* unless the
+ * mana buys something: counted as a real choice, one untapped dork resurrects the
+ * dead "Pass" stop at every phase of every turn — the exact ceremony the auto-pass
+ * rule exists to remove, and the whole Thicket deck runs eight of them.
+ */
+function isManaActivation(state: GameState, action: Action): boolean {
+  if (action.kind !== 'activate') return false;
+  const card = state.cards[action.card];
+  const ability = card ? state.defs[card.oracleId]?.activated[action.abilityIndex] : undefined;
+  // An ability this function cannot see is a real choice: stopping too often is an
+  // annoyance, skipping a real window is a rules break.
+  if (!ability || ability.effects.length === 0) return false;
+  return ability.effects.every((effect) => effect.kind === 'addMana');
+}
+
+/**
+ * Would floating every available mana ability change what this player can do?
+ *
+ * The dork's tap is a decision exactly when the mana it makes unlocks a play — a
+ * two-cost creature behind one land, an activation one mana short. So: pretend all of
+ * it is floated, ask `legalActions` again, and compare. Reusing the generator keeps
+ * this the same single definition of legal everything else consults.
+ */
+function manaCouldMatter(state: GameState, player: PlayerId, manaActions: Action[]): boolean {
+  const floated = cloneState(withPriority(state, player));
+  for (const action of manaActions) {
+    if (action.kind !== 'activate') continue;
+    const card = floated.cards[action.card];
+    const ability = card ? floated.defs[card.oracleId]?.activated[action.abilityIndex] : undefined;
+    if (!card || !ability) continue;
+    if (ability.cost.tapSelf) card.tapped = true;
+    for (const effect of ability.effects) {
+      if (effect.kind !== 'addMana') continue;
+      for (const color of effect.colors) {
+        const pool = floated.players[player].manaPool;
+        pool[color] = (pool[color] ?? 0) + 1;
+      }
+    }
+  }
+  return legalActions(floated).some(
+    (action) => !isNoOp(action) && !isManaActivation(floated, action),
+  );
+}
+
 /** Does this player have anything to decide right now, other than to advance? */
 function hasRealChoice(state: GameState, player: PlayerId): boolean {
-  return legalActions(withPriority(state, player)).some((action) => !isNoOp(action));
+  const actions = legalActions(withPriority(state, player));
+  const manaActions: Action[] = [];
+  for (const action of actions) {
+    if (isNoOp(action)) continue;
+    if (isManaActivation(state, action)) {
+      manaActions.push(action);
+      continue;
+    }
+    return true;
+  }
+  return manaActions.length > 0 && manaCouldMatter(state, player, manaActions);
 }
 
 // ---------------------------------------------------------------------------
@@ -624,7 +681,21 @@ export function advancePhase(state: GameState): ReduceResult {
 
     if (next.winner !== null) break;
     if (next.stack.length > 0) break;
+    // BOTH players, not just the default holder. Checking only the holder resolved
+    // first-strike and combat damage straight through the window a defender blocks
+    // into holding a combat trick — the exact moment the whole "real stack, capped at
+    // three" design exists to protect. When only the other player has the choice, the
+    // settle pass at the end of reduce routes priority across to them.
+    //
+    // One deliberate exception: at declare blockers, only the DEFENDER'S choices
+    // count. Consulting the attacker there manufactures a pre-blocks window whenever
+    // they hold any instant — a stop whose answer is "wait for blocks" so nearly
+    // always that it is ceremony wearing a trick's clothes. The attacker's real
+    // window comes after blocks, at the damage step, where both players are
+    // consulted — pump to punch through, or pump to save the blocker, both live
+    // there. Spec §6's between-declarations window is collapsed on purpose.
     if (hasRealChoice(next, next.priority)) break;
+    if (next.phase !== 'declareBlockers' && hasRealChoice(next, opponentOf(next.priority))) break;
   }
   return { state: next, events };
 }

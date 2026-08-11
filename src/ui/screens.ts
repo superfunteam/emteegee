@@ -53,14 +53,19 @@ export function titleScreen(onPlay: () => void, onSettings: () => void): HTMLEle
   const play = el<HTMLButtonElement>('button.title__play', { type: 'button', text: 'Play' });
   play.addEventListener('click', () => { sound.unlock(); sound.play('button'); onPlay(); });
 
-  const settings = el<HTMLButtonElement>('button.title__link', { type: 'button', text: 'Settings' });
+  const settings = el<HTMLButtonElement>('button.title__ghost', { type: 'button', text: 'Settings' });
   settings.addEventListener('click', () => { sound.unlock(); sound.play('blip'); onSettings(); });
 
   return el('div.screen.title', {},
-    el('h1.title__mark', { html: 'emtee<em>gee</em>' }),
-    el('p.title__tag', { text: 'The easiest way to play the best card game.' }),
-    play,
-    el('div.title__row', {}, settings),
+    el('div.title__hero', {},
+      el<HTMLImageElement>('img.title__logo', {
+        src: 'logo.jpg',
+        alt: 'MTG — emteegee',
+        width: '880', height: '528',
+      }),
+      el('p.title__tag', { text: 'The easiest way to play the best card game.' }),
+    ),
+    el('div.title__actions', {}, play, settings),
     el('p.title__foot', {
       html: 'Card images and data from <b>Scryfall</b>. Sounds by <b>Kenney</b> (CC0). '
         + 'An open-source demo for learning Magic — not affiliated with Wizards of the Coast.',
