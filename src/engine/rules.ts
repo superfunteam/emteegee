@@ -71,7 +71,7 @@ import {
 import { isLegal, legalActions } from './actions';
 import { applyEffect, applyEffects } from './effects';
 import { declareAttackers, declareBlockers, resolveDamageStep } from './combat';
-import { fireTriggers, triggerSourceOf, triggersOfDef } from './triggers';
+import { fireTriggers, notifyEnteredBattlefield, triggerSourceOf, triggersOfDef } from './triggers';
 import { evCast, evPhase, evPlay, evResolve, evUntap, evWin, evZoneChange } from './events';
 
 /** Every mana symbol that can appear in a cost. */
@@ -226,25 +226,7 @@ function defOf(state: GameState, card: CardId): CardDef | undefined {
  * the same player, and never on the arriving creature itself.
  */
 function enteredBattlefield(owned: GameState, card: CardId, events: GameEvent[]): void {
-  const instance = owned.cards[card];
-  if (!instance) return;
-  instance.summonedThisTurn = true;
-  fireTriggers(owned, events, triggerSourceOf(owned, card), 'onEnterBattlefield', card, instance.controller);
-
-  if (!isCreature(owned, card)) return;
-  for (const id of [...owned.players[instance.controller].battlefield]) {
-    if (id === card) continue;
-    const watcher = owned.cards[id];
-    if (!watcher) continue;
-    fireTriggers(
-      owned,
-      events,
-      triggerSourceOf(owned, id),
-      'onOtherEnterBattlefield',
-      id,
-      watcher.controller,
-    );
-  }
+  notifyEnteredBattlefield(owned, card, events);
 }
 
 // ---------------------------------------------------------------------------

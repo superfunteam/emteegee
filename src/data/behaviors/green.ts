@@ -6,13 +6,31 @@
  * anything needing a conditional static, a conditional trigger or an untap
  * restriction was removed from the pool instead of approximated.
  *
- * Cards deliberately absent, and why:
- *   Bramblewood Paragon  replacement effect ("enters with an additional +1/+1
- *                        counter") plus a keyword granted by counter state.
- *   Netcaster Spider     "whenever this blocks a creature with flying" — onBlock
- *                        carries no condition on what was blocked.
- *   Nettle Sentinel      "doesn't untap during your untap step" has no vocabulary
- *                        member, and the untap trigger is optional and color-gated.
+ * Cards deliberately absent, and why. Each was re-checked against vocabulary
+ * revision 1 (`'any'`, `PlayerTarget`, negated filters, `cantBlock`,
+ * `staticPump.keywords`, `onOtherEnterBattlefield`, `Trigger.targets`); none of the
+ * seven additions reaches any of them, so all three stay out of the pool.
+ *
+ *   Bramblewood Paragon  Two clauses, neither expressible.
+ *                        "Each other Warrior creature you control enters with an
+ *                        additional +1/+1 counter" is a replacement effect, and
+ *                        `onOtherEnterBattlefield` does not become one: the event
+ *                        carries no filter on what entered, so it would fire for
+ *                        every creature rather than Warriors only, and the counter
+ *                        would land on a creature the controller *chooses* via
+ *                        `Trigger.targets` rather than on the one that entered.
+ *                        "Each creature you control with a +1/+1 counter on it has
+ *                        trample" is a counter-conditional static;
+ *                        `staticPump.keywords` grants the keyword unconditionally
+ *                        and `TargetFilter` has no counter predicate, so it would
+ *                        hand trample to the whole board.
+ *   Netcaster Spider     "Whenever this creature blocks a creature with flying" —
+ *                        what is missing is a condition on the blocked creature,
+ *                        not a target. `Trigger.targets` chooses; it cannot gate.
+ *                        The pump points at itself and always did.
+ *   Nettle Sentinel      "Doesn't untap during your untap step" still has no
+ *                        vocabulary member, and the untap trigger is optional
+ *                        ("you may") and gated on casting a green spell.
  */
 
 import type { BehaviorTable } from './shared';
@@ -70,10 +88,11 @@ export const GREEN: BehaviorTable = {
 
   // "Creatures you control get +3/+3 and gain trample until end of turn."
   // Untargeted: the filter itself selects every creature you control.
+  /** "Creatures you control get +3/+3 and gain trample until end of turn." */
   'overrun': {
     spellEffects: [
-      { kind: 'pump', target: YOUR_CREATURE, power: 3, toughness: 3, duration: 'endOfTurn' },
-      { kind: 'grantKeyword', target: YOUR_CREATURE, keyword: 'trample', duration: 'endOfTurn' },
+      { kind: 'pump', target: { every: YOUR_CREATURE }, power: 3, toughness: 3, duration: 'endOfTurn' },
+      { kind: 'grantKeyword', target: { every: YOUR_CREATURE }, keyword: 'trample', duration: 'endOfTurn' },
     ],
   },
 

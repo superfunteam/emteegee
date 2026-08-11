@@ -12,9 +12,12 @@
  * Conventions used here:
  *   - Printed keywords (flying, defender, vigilance) come from Scryfall and need
  *     no entry, so the vanilla fliers are absent.
- *   - `targets` is the player's choose-at-cast-time list and is only set on
- *     spells and activated abilities. A triggered ability's target comes from
- *     the filter on its own effect, since `Trigger` carries no `targets` field.
+ *   - Behavior-level `targets` is the player's choose-at-cast-time list and is
+ *     only set on spells. A triggered ability declares its own `targets` on the
+ *     `Trigger`, because it chooses them as it goes on the stack — a different
+ *     moment than the spell that created it. An effect's `target` filter only
+ *     says what that effect does with the selection; it does not cause a
+ *     selection to be made.
  */
 
 import type { BehaviorTable } from './shared';
@@ -119,14 +122,22 @@ export const BLUE: BehaviorTable = {
   // "When this creature enters, return target creature to its owner's hand."
   'man-o-war': {
     triggers: [
-      { on: 'onEnterBattlefield', effects: [{ kind: 'returnToHand', target: ANY_CREATURE }] },
+      {
+        on: 'onEnterBattlefield',
+        effects: [{ kind: 'returnToHand', target: ANY_CREATURE }],
+        targets: [ANY_CREATURE],
+      },
     ],
   },
 
   // "Flying / When this creature enters, return target creature to its owner's hand."
   'mist-raven': {
     triggers: [
-      { on: 'onEnterBattlefield', effects: [{ kind: 'returnToHand', target: ANY_CREATURE }] },
+      {
+        on: 'onEnterBattlefield',
+        effects: [{ kind: 'returnToHand', target: ANY_CREATURE }],
+        targets: [ANY_CREATURE],
+      },
     ],
   },
 
@@ -152,3 +163,28 @@ export const BLUE: BehaviorTable = {
     ],
   },
 };
+
+/*
+ * Still not expressible, re-checked against vocabulary revision 1
+ * ('any' targets, PlayerTarget, negated filters, cantBlock, lord keywords,
+ * onOtherEnterBattlefield, Trigger.targets). None of the seven additions touch
+ * what blue's holdouts need, so all eight stay out of the pool:
+ *
+ *   Aven Fisher    "you may draw a card" — triggers are mandatory here, and a
+ *                  free card the player cannot decline is a different card.
+ *   Cloud Elemental "can block only creatures with flying". `cantBlock` is total;
+ *                  this is a restriction on *what* it may block. Either reading
+ *                  of it in this vocabulary is wrong in one direction.
+ *   Fog Bank       damage prevention.
+ *   Frost Lynx     `Trigger.targets` now expresses the tap half, but the skip-untap
+ *                  half is the whole reason the card is played. Half a Frost Lynx
+ *                  is not a Frost Lynx.
+ *   Sage Owl       reordering the top four of your library. `scry` bottoms cards
+ *                  instead of ordering them; it is a different effect, not a
+ *                  smaller one.
+ *   Sleep          mass tap (effects hit the chosen selection, not every match)
+ *                  plus skip-untap.
+ *   Wall of Frost  skip-untap on block.
+ *   Wind Zendikon  turns a land into a creature; `aura` adjusts an existing
+ *                  creature's stats and cannot confer creaturehood.
+ */

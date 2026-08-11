@@ -45,9 +45,9 @@ import type {
   TokenSpec,
   Zone,
 } from './types';
-import { assertNever } from './types';
-import { cloneState, isCreature, move, newInstance, opponentOf } from './state';
-import { fireTriggers, triggersOfDef, type TriggerSource } from './triggers';
+import { assertNever, isEveryTarget } from './types';
+import { cloneState, isCreature, matchesFilter, move, newInstance, opponentOf } from './state';
+import { fireTriggers, notifyEnteredBattlefield, triggersOfDef, type TriggerSource } from './triggers';
 import {
   evCounterAdd,
   evCountered,
@@ -199,6 +199,22 @@ function cardsFor(
 ): CardId[] {
   if (target === 'self') return state.cards[source] ? [source] : [];
   if (target === 'player') return [];
+
+  // A mass effect has nothing to choose, so it does not consult the selection at all:
+  // it sweeps both battlefields for everything the filter matches. This is the whole
+  // difference between Doom Blade and Wrath of God, and writing the latter as a bare
+  // filter would leave it destroying nothing while looking like it resolved.
+  if (isEveryTarget(target)) {
+    const controller = state.cards[source]?.controller ?? 0;
+    const matches: CardId[] = [];
+    for (const player of [0, 1] as const) {
+      for (const id of state.players[player].battlefield) {
+        if (matchesFilter(state, id, target.every, controller)) matches.push(id);
+      }
+    }
+    return matches;
+  }
+
   if (!Array.isArray(targets)) return [];
   return targets.filter((id) => state.cards[id] !== undefined);
 }
@@ -576,6 +592,9 @@ function createToken(
       keywords: [...spec.keywords],
     };
     events.push(evTokenCreate(made.id));
+    // A token arriving is a creature arriving. Skipping this is how a Soldier token
+    // silently fails to feed every lifegain engine on the board.
+    notifyEnteredBattlefield(next, made.id, events);
   }
   return { state: next, events };
 }

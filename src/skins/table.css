@@ -1,0 +1,573 @@
+/*
+ * The table.
+ *
+ * Band structure per spec section 9.2, with the pixel values validated in
+ * docs/prototypes/layout-study.html at 390px. Colors come entirely from skins.css —
+ * nothing below names a color directly, which is what makes a skin fifteen properties
+ * instead of a rewrite.
+ *
+ * Only transform and opacity are animated, so everything stays on the compositor.
+ */
+
+.table {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--felt);
+  color: var(--ink);
+  overflow: hidden;
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ---------- player rails ---------- */
+
+.rail {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  background: var(--felt-2);
+  border-bottom: 1px solid var(--edge);
+  flex: none;
+}
+
+.rail--you {
+  border-bottom: 0;
+  border-top: 1px solid var(--edge);
+  padding-top: 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.rail--active {
+  box-shadow: inset 3px 0 0 var(--acc);
+}
+
+.rail__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  background: var(--zone);
+  border: 1px solid var(--edge-hi);
+  color: var(--ink-2);
+}
+
+.rail__who { min-width: 0; flex: 1; }
+
+.rail__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rail__counts {
+  display: flex;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.rail__counts > span { display: flex; align-items: center; gap: 3px; }
+
+.rail__icon {
+  width: 11px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--edge-hi);
+  display: inline-block;
+}
+
+.rail__status {
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.rail__life {
+  font-family: var(--font-serif);
+  font-size: 27px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+  text-align: right;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.rail__life--hit { color: var(--danger); transform: scale(1.14); }
+.rail__life--gain { color: var(--life-gain); transform: scale(1.1); }
+
+/* ---------- mana ---------- */
+
+.mana {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  background: var(--felt);
+  border-bottom: 1px solid var(--edge);
+  flex: none;
+  min-height: 30px;
+}
+
+.mana--you { border-bottom: 0; border-top: 1px solid var(--edge); }
+
+.mana__label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-right: 2px;
+}
+
+.gem {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gemring);
+  flex: none;
+  box-shadow: inset 0 -2px 3px rgb(0 0 0 / 0.24);
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+/* Spent mana drains and keeps its ring rather than fading out. Opacity alone
+   disappears against the light skins. */
+.gem--spent { filter: grayscale(0.85); opacity: 0.42; box-shadow: none; }
+
+.gem--w { background: var(--mana-w); }
+.gem--u { background: var(--mana-u); }
+.gem--b { background: var(--mana-b); }
+.gem--r { background: var(--mana-r); }
+.gem--g { background: var(--mana-g); }
+.gem--c { background: var(--mana-c); }
+
+.mana__lands {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  border: 1px solid var(--edge-hi);
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: transparent;
+  min-height: 24px;
+}
+
+/* ---------- battlefield ---------- */
+
+.board {
+  flex: 1;
+  min-height: 0;
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+}
+
+.board__row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ---------- creature tile ---------- */
+
+.tile {
+  width: 74px;
+  flex: none;
+  border-radius: 9px;
+  overflow: hidden;
+  position: relative;
+  background: var(--zone);
+  border: 1px solid var(--tile-border);
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1), box-shadow 0.2s, opacity 0.2s;
+}
+
+.tile__art {
+  width: 100%;
+  height: 56px;
+  object-fit: cover;
+  display: block;
+  background: var(--edge);
+}
+
+.tile__name {
+  font-size: 8.5px;
+  line-height: 1.25;
+  padding: 3px 4px 4px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.tile__pt {
+  position: absolute;
+  right: 3px;
+  top: 41px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--badge);
+  color: var(--badge-ink);
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.tile__pt--buffed { color: var(--life-gain); }
+.tile__pt--hurt { color: var(--danger); }
+
+.tile__keywords {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  display: flex;
+  gap: 2px;
+}
+
+.tile__keywords i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--badge);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  font-style: normal;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  color: var(--acc);
+}
+
+.tile__counters {
+  position: absolute;
+  left: 3px;
+  top: 41px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  background: var(--life-gain);
+  color: #06120a;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.tile--tapped { transform: rotate(9deg) scale(0.93); filter: saturate(0.5) brightness(0.72); }
+.tile--sick { opacity: 0.82; }
+.tile--attacking { transform: translateY(-16px) scale(1.05); box-shadow: 0 8px 18px var(--shade), 0 0 0 2px var(--danger); }
+.tile--blocking { box-shadow: 0 0 0 2px var(--acc); }
+.tile--selected { box-shadow: 0 0 0 3px var(--acc); transform: translateY(-6px); }
+.tile--targetable { box-shadow: 0 0 0 2px var(--acc); animation: pulse 1.4s ease-in-out infinite; }
+.tile--dying { transform: scale(0.7) rotate(-8deg); opacity: 0; }
+
+.tile--entering { animation: summon 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.1); }
+
+@keyframes summon {
+  from { transform: translateY(14px) scale(0.8); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--acc); }
+  50% { box-shadow: 0 0 0 4px var(--acc); }
+}
+
+/* A full board steps the tiles down rather than letting them overflow. Five per side
+   is where 74px stops fitting two rows comfortably at 390px. */
+.board--dense .tile { width: 56px; }
+.board--dense .tile__art { height: 42px; }
+.board--dense .tile__pt { top: 29px; font-size: 9px; }
+.board--dense .tile__counters { top: 29px; font-size: 8px; }
+.board--dense .tile__name { font-size: 7.5px; }
+
+/* ---------- middle strip ---------- */
+
+.mid {
+  flex: none;
+  padding: 5px 11px;
+  background: var(--felt-2);
+  border-block: 1px solid var(--edge);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+
+.yard {
+  display: flex;
+  gap: 5px;
+  flex: none;
+}
+
+.yard button {
+  width: 27px;
+  height: 29px;
+  flex: none;
+  border-radius: 3px;
+  border: 1px dashed var(--edge-hi);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-3);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.phases {
+  display: flex;
+  flex: 1;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+}
+
+.phases b {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  text-transform: uppercase;
+  padding: 4px 0;
+  color: var(--ink-3);
+  background: var(--felt);
+  transition: background 0.2s, color 0.2s;
+}
+
+.phases b.on { background: var(--acc); color: var(--acc-on); font-weight: 700; }
+
+/* ---------- hand ---------- */
+
+.hand {
+  flex: none;
+  height: 118px;
+  position: relative;
+  background: linear-gradient(180deg, transparent, var(--shade));
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 6px;
+}
+
+.hand__label {
+  position: absolute;
+  left: 11px;
+  top: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.hand__card {
+  width: 70px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid rgb(0 0 0 / 0.55);
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  background: none;
+  transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.1), filter 0.2s;
+  transform-origin: bottom center;
+  margin: 0 -13px;
+  box-shadow: 0 -3px 10px var(--shade);
+}
+
+.hand__card img { width: 100%; display: block; }
+.hand__card--up { transform: translateY(-22px) scale(1.13); z-index: 9; }
+.hand__card--playable { box-shadow: 0 -3px 10px var(--shade), 0 0 0 2px var(--acc); }
+
+/* Unaffordable cards stay visible but obviously inert — hiding them would teach the
+   player nothing about why they cannot cast them. */
+.hand__card--dim { filter: brightness(0.5) saturate(0.6); }
+
+.hand__backs { display: flex; justify-content: center; flex: none; height: 26px; overflow: hidden; }
+
+.hand__backs i {
+  width: 34px;
+  height: 47px;
+  margin: 0 -9px;
+  border-radius: 3px;
+  background: linear-gradient(155deg, #3a2a1c, #191108);
+  border: 1px solid #0b0705;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.5);
+}
+
+/* ---------- floating numbers ---------- */
+
+.floaty {
+  position: absolute;
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 700;
+  pointer-events: none;
+  animation: rise 1s ease-out forwards;
+  text-shadow: 0 2px 8px rgb(0 0 0 / 0.6);
+  z-index: 30;
+}
+
+.floaty--damage { color: var(--danger); }
+.floaty--gain { color: var(--life-gain); }
+
+@keyframes rise {
+  0% { opacity: 0; transform: translateY(6px) scale(0.8); }
+  18% { opacity: 1; transform: translateY(-4px) scale(1.15); }
+  100% { opacity: 0; transform: translateY(-40px) scale(1); }
+}
+
+/* ---------- primary action button ---------- */
+
+.act {
+  position: absolute;
+  right: 12px;
+  bottom: calc(126px + env(safe-area-inset-bottom));
+  z-index: 25;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--acc);
+  background: var(--acc);
+  color: var(--acc-on);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  box-shadow: 0 4px 14px var(--shade);
+  transition: transform 0.16s, opacity 0.2s;
+}
+
+.act:active { transform: scale(0.96); }
+.act--waiting { background: transparent; color: var(--ink-3); border-color: var(--edge-hi); }
+
+/* ---------- speech ribbon ---------- */
+
+.ribbon {
+  position: absolute;
+  left: 11px;
+  right: 68px;
+  top: 96px;
+  z-index: 26;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: var(--zone);
+  border: 1px solid var(--edge-hi);
+  color: var(--ink-2);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.35;
+  box-shadow: 0 4px 14px var(--shade);
+  animation: ribbon-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
+
+@keyframes ribbon-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- overlays ---------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgb(6 4 3 / 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.18s ease-out;
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.overlay__card {
+  width: 100%;
+  max-width: 260px;
+  border-radius: 11px;
+  box-shadow: 0 18px 46px rgb(0 0 0 / 0.7);
+  animation: pop 0.26s cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
+
+@keyframes pop {
+  from { transform: scale(0.86); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.overlay__artist {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #7e7264;
+}
+
+/* ---------- hints ---------- */
+
+.hint {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(180px + env(safe-area-inset-bottom));
+  z-index: 40;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: var(--zone);
+  border: 1px solid var(--acc);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: 0 6px 20px var(--shade);
+  animation: ribbon-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
+
+.hint b { color: var(--acc); font-weight: 700; }
+
+/* ---------- focus and motion ---------- */
+
+.table :focus-visible {
+  outline: 3px solid var(--acc);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table *,
+  .table *::before,
+  .table *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

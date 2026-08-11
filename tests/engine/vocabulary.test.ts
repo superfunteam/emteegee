@@ -36,7 +36,7 @@ import { canAttack, canBlock, declareBlockers } from '../../src/engine/combat';
 import { applyEffect } from '../../src/engine/effects';
 import { cloneState, hasKeyword, newInstance, powerOf, toughnessOf } from '../../src/engine/state';
 import { reduce, resolveTop } from '../../src/engine/rules';
-import { gameWith, giveLands } from '../fixtures';
+import { battlefield, gameWith, giveLands } from '../fixtures';
 
 // ---------------------------------------------------------------------------
 // Card definitions
@@ -835,12 +835,27 @@ describe('onOtherEnterBattlefield', () => {
     expect(sources).not.toContain(cast.id);
   });
 
-  it('does not fire for the opponent permanents', () => {
+  it('fires for a watcher across the table, because "another creature" means any', () => {
+    // Soul Warden gains life off the creatures your opponent plays too. Firing only
+    // for the watcher's own side would silently drop about half of its triggers,
+    // which is an approximation of the card rather than the card.
     const theirs = putAll(stage(), ['warden'], 1);
     const cast = onStack(theirs.state, 'bear', 0);
     const resolved = resolveTop(cast.state);
 
-    expect(fired(resolved.events)).toEqual([]);
+    expect(fired(resolved.events)).toEqual([
+      { source: theirs.ids[0]!, on: 'onOtherEnterBattlefield' },
+    ]);
+  });
+
+  it('fires for watchers on both sides at once', () => {
+    const mine = putAll(stage(), ['warden'], 0);
+    const both = putAll(mine.state, ['warden'], 1);
+    const cast = onStack(both.state, 'bear', 0);
+    const resolved = resolveTop(cast.state);
+
+    const sources = fired(resolved.events).map((entry) => entry.source).sort();
+    expect(sources).toEqual([mine.ids[0]!, both.ids[0]!].sort());
   });
 
   it('actually resolves, so the life is really gained', () => {
@@ -924,5 +939,105 @@ describe('targets chosen by a trigger', () => {
     const dead = destroy(theirs.state, mine.ids[0]!);
 
     expect(dead.state.stack[0]!.targets).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H. Mass effects: { every: filter }
+// ---------------------------------------------------------------------------
+
+/**
+ * A bare `TargetFilter` means one *chosen* target and resolves from the caster's
+ * selection. A mass effect has nothing to choose, so written as a bare filter it
+ * resolves to nothing while looking like it worked — Wrath of God destroying no
+ * creatures. `{ every: filter }` is the distinction.
+ */
+describe('every: sweeps the battlefield instead of a selection', () => {
+  it('destroys every creature on both sides, with no target chosen', () => {
+    const board = battlefield({
+      you: [{ power: 2, toughness: 2 }, { power: 5, toughness: 5 }],
+      them: [{ power: 1, toughness: 1 }, { power: 7, toughness: 7 }],
+    });
+    const out = applyEffect(
+      board,
+      { kind: 'destroy', target: { every: { zone: 'battlefield', cardTypes: ['creature'], controller: 'any' } } },
+      'you0',
+      0,
+      null,
+    );
+
+    for (const id of ['you0', 'you1', 'them0', 'them1']) {
+      expect(out.state.cards[id]!.zone).toBe('graveyard');
+    }
+  });
+
+  it('the same effect written as a bare filter destroys nothing', () => {
+    // This is the exact bug the member exists to make impossible to write by accident.
+    const board = battlefield({ you: [{ power: 2, toughness: 2 }], them: [{ power: 1, toughness: 1 }] });
+    const out = applyEffect(
+      board,
+      { kind: 'destroy', target: { zone: 'battlefield', cardTypes: ['creature'], controller: 'any' } },
+      'you0',
+      0,
+      null,
+    );
+    expect(out.state.cards['you0']!.zone).toBe('battlefield');
+    expect(out.state.cards['them0']!.zone).toBe('battlefield');
+  });
+
+  it('honors controller: you, so a one-sided pump misses the opponent', () => {
+    const board = battlefield({
+      you: [{ power: 2, toughness: 2 }, { power: 3, toughness: 3 }],
+      them: [{ power: 4, toughness: 4 }],
+    });
+    const out = applyEffect(
+      board,
+      {
+        kind: 'pump',
+        target: { every: { zone: 'battlefield', cardTypes: ['creature'], controller: 'you' } },
+        power: 3, toughness: 3, duration: 'endOfTurn',
+      },
+      'you0',
+      0,
+      null,
+    );
+
+    expect(powerOf(out.state, 'you0')).toBe(5);
+    expect(powerOf(out.state, 'you1')).toBe(6);
+    expect(powerOf(out.state, 'them0')).toBe(4);
+  });
+
+  it('grants a keyword to everything it sweeps', () => {
+    const board = battlefield({ you: [{ power: 2, toughness: 2 }, { power: 3, toughness: 3 }], them: [] });
+    const out = applyEffect(
+      board,
+      {
+        kind: 'grantKeyword',
+        target: { every: { zone: 'battlefield', cardTypes: ['creature'], controller: 'you' } },
+        keyword: 'trample', duration: 'endOfTurn',
+      },
+      'you0',
+      0,
+      null,
+    );
+    expect(hasKeyword(out.state, 'you0', 'trample')).toBe(true);
+    expect(hasKeyword(out.state, 'you1', 'trample')).toBe(true);
+  });
+
+  it('sweeps only what the filter matches', () => {
+    const board = battlefield({
+      you: [{ power: 2, toughness: 2 }, { power: 2, toughness: 2, keywords: ['flying'] }],
+      them: [],
+    });
+    const out = applyEffect(
+      board,
+      { kind: 'destroy', target: { every: { zone: 'battlefield', cardTypes: ['creature'], controller: 'you', maxPower: 2 } } },
+      'you0',
+      0,
+      null,
+    );
+    // Both are 2 power, so both go — the point is the filter is consulted at all.
+    expect(out.state.cards['you0']!.zone).toBe('graveyard');
+    expect(out.state.cards['you1']!.zone).toBe('graveyard');
   });
 });

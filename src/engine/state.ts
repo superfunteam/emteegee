@@ -477,8 +477,13 @@ function rawChars(state: GameState, id: CardId): { power: number; toughness: num
  *
  * `controller: 'you'` means the controller of whatever wrote the filter, not
  * player 0. Only the fields the filter sets are tested.
+ *
+ * Exported for `effects.ts`, which needs it to sweep the battlefields for a mass
+ * effect. This is the *base characteristics* reading — it deliberately does not
+ * consult `powerOf`, because a lord whose own filter tests `minPower` would then
+ * recurse into itself.
  */
-function matchesFilter(
+export function matchesFilter(
   state: GameState,
   id: CardId,
   filter: TargetFilter,

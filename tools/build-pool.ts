@@ -166,7 +166,18 @@ async function main(): Promise<void> {
 
   const defs: Record<string, CardDef> = {};
 
-  for (const c of cards) {
+  // The cache accumulates every card ever looked up, including ones since removed from
+  // the pool. Only what the pool still names is the build's business — otherwise
+  // pruning a card could never make the build pass.
+  const wanted = new Set<string>(POOL);
+  const inPool = cards.filter(c => wanted.has(c.name));
+
+  const resolved = new Set(inPool.map(c => c.name));
+  for (const name of POOL) {
+    if (!resolved.has(name)) failures.push(`${name}: in the pool but not in the Scryfall cache`);
+  }
+
+  for (const c of inPool) {
     const check = validateCard(c);
     if (!check.ok) {
       failures.push(check.reason!);

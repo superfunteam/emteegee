@@ -102,11 +102,33 @@ export type Duration = 'endOfTurn' | 'permanent';
 /**
  * Who or what an effect resolves against.
  *
+ * A bare `TargetFilter` means *one chosen target* matching it, resolved from the
+ * selection the caster made. `{ every: filter }` means *every permanent that matches*,
+ * with nothing to choose — the difference between Doom Blade and Wrath of God.
+ *
+ * Keeping those distinct is not pedantry: an unselected filter resolves to nothing, so
+ * a mass effect written as a bare filter destroys nothing, pumps nothing, and looks
+ * like it worked.
+ *
  * `'any'` is Magic's "any target": a creature or a player, chosen by the caster when
  * the spell is cast. Without it no burn spell in the game is expressible, since every
  * one of them reads "deals N damage to any target".
  */
-export type EffectTarget = TargetFilter | 'self' | 'player' | 'any';
+export type EffectTarget = TargetFilter | EveryTarget | 'self' | 'player' | 'any';
+
+/** Every permanent matching the filter. Not targeted, so hexproof and ward do not apply. */
+export interface EveryTarget {
+  every: TargetFilter;
+}
+
+export const isEveryTarget = (target: EffectTarget): target is EveryTarget =>
+  typeof target === 'object' && target !== null && 'every' in target;
+
+/**
+ * Effects that act on permanents rather than on players: one chosen permanent
+ * matching a filter, or every permanent that matches.
+ */
+export type PermanentTarget = TargetFilter | EveryTarget;
 
 /** Which player an effect acts on. `'target'` means the caster chooses. */
 export type PlayerTarget = 'you' | 'opponent' | 'target';
@@ -117,22 +139,22 @@ export type PlayerTarget = 'you' | 'opponent' | 'target';
  */
 export type Effect =
   | { kind: 'damage'; target: EffectTarget; amount: number }
-  | { kind: 'destroy'; target: TargetFilter }
-  | { kind: 'exile'; target: TargetFilter }
+  | { kind: 'destroy'; target: PermanentTarget }
+  | { kind: 'exile'; target: PermanentTarget }
   | { kind: 'draw'; player: PlayerTarget; count: number }
   | { kind: 'discard'; player: PlayerTarget; count: number }
   | { kind: 'gainLife'; player: PlayerTarget; amount: number }
   | { kind: 'loseLife'; player: PlayerTarget; amount: number }
   | { kind: 'pump'; target: EffectTarget; power: number; toughness: number; duration: Duration }
   | { kind: 'grantKeyword'; target: EffectTarget; keyword: Keyword; duration: Duration }
-  | { kind: 'tap'; target: TargetFilter }
-  | { kind: 'untap'; target: TargetFilter }
+  | { kind: 'tap'; target: PermanentTarget }
+  | { kind: 'untap'; target: PermanentTarget }
   | { kind: 'addCounter'; target: EffectTarget; counter: CounterKind; count: number }
   | { kind: 'createToken'; token: TokenSpec; count: number }
   | { kind: 'scry'; count: number }
   | { kind: 'addMana'; colors: Color[] }
-  | { kind: 'returnToHand'; target: TargetFilter }
-  | { kind: 'sacrifice'; target: TargetFilter }
+  | { kind: 'returnToHand'; target: PermanentTarget }
+  | { kind: 'sacrifice'; target: PermanentTarget }
   | { kind: 'counterSpell' };
 
 export type CounterKind = '+1/+1' | '-1/-1';
@@ -149,7 +171,11 @@ export interface TokenSpec {
 
 export type TriggerEvent =
   | 'onEnterBattlefield'
-  /** Another creature you control entering. Soul Warden and every lifegain engine. */
+  /**
+   * Any other creature entering, on either side of the table — never the entering
+   * creature itself. Soul Warden and every lifegain engine hang off this, and they
+   * count the opponent's creatures too.
+   */
   | 'onOtherEnterBattlefield'
   | 'onDies'
   | 'onAttack'

@@ -5,48 +5,40 @@
  * implemented mechanic whitelist. A name here is a promise that the engine can play
  * the card correctly, and `npm run pool` fails the build if that stops being true.
  *
- * 159 cards. Add by name; the pipeline resolves everything else from Scryfall.
+ * 131 cards. Add by name; the pipeline resolves everything else from Scryfall.
  */
 
 export const POOL: readonly string[] = [
 
-  // Lands (5)
+  // Lands
   "Forest",
   "Island",
   "Mountain",
   "Plains",
   "Swamp",
 
-  // White (38)
-  "Ajani's Chosen",
+  // White
   "Ajani's Pridemate",
   "Alaborn Trooper",
   "Angel of Mercy",
   "Angelic Blessing",
-  "Ballynock Cohort",
   "Benalish Knight",
   "Benalish Marshal",
   "Captain's Call",
-  "Cathar's Companion",
-  "Divine Verdict",
   "Elite Vanguard",
   "Field Marshal",
   "Gideon's Lawkeeper",
   "Glorious Anthem",
   "Healer's Hawk",
   "Holy Strength",
-  "Icatian Javelineers",
   "Kinsbaile Skirmisher",
   "Leonin Skyhunter",
-  "Loyal Sentry",
   "Marked by Honor",
   "Master Decoy",
   "Raise the Alarm",
   "Sacred Nectar",
   "Savannah Lions",
-  "Seraph of the Sword",
   "Serra Angel",
-  "Serra Paladin",
   "Serra's Embrace",
   "Soul Warden",
   "Standing Troops",
@@ -57,18 +49,14 @@ export const POOL: readonly string[] = [
   "Wrath of God",
   "Youthful Knight",
 
-  // Blue (30)
+  // Blue
   "Air Elemental",
-  "Aven Fisher",
   "Azure Drake",
-  "Cloud Elemental",
   "Cloudkin Seer",
   "Coral Merfolk",
   "Counterspell",
   "Divination",
   "Essence Scatter",
-  "Fog Bank",
-  "Frost Lynx",
   "Horned Turtle",
   "Man-o'-War",
   "Merfolk Looter",
@@ -77,19 +65,15 @@ export const POOL: readonly string[] = [
   "Opt",
   "Phantom Monster",
   "Preordain",
-  "Sage Owl",
   "Serendib Efreet",
-  "Sleep",
   "Snapping Drake",
   "Storm Crow",
   "Unsummon",
   "Wall of Air",
-  "Wall of Frost",
   "Wind Drake",
-  "Wind Zendikon",
   "Zephyr Falcon",
 
-  // Black (23)
+  // Black
   "Barony Vampire",
   "Bloodhunter Bat",
   "Bloodrite Invoker",
@@ -101,27 +85,20 @@ export const POOL: readonly string[] = [
   "Murder",
   "Nightwing Shade",
   "Rotting Fensnake",
-  "Sengir Nosferatu",
-  "Sengir Vampire",
-  "Sign in Blood",
   "Terror",
   "Typhoid Rats",
   "Untamed Hunger",
-  "Vampire Aristocrat",
   "Vampire Interloper",
-  "Vampire Lacerator",
   "Vampire Nighthawk",
   "Walking Corpse",
   "Zombie Goliath",
 
-  // Red (31)
-  "Bloodfire Dwarf",
+  // Red
   "Bogardan Firefiend",
   "Canyon Minotaur",
   "Dragon Hatchling",
   "Ember Hauler",
   "Fire Elemental",
-  "Firebreathing",
   "Furnace Whelp",
   "Goblin Balloon Brigade",
   "Goblin Chieftain",
@@ -130,7 +107,6 @@ export const POOL: readonly string[] = [
   "Goblin Sky Raider",
   "Hill Giant",
   "Incinerate",
-  "Kird Ape",
   "Krenko's Command",
   "Lava Axe",
   "Lightning Bolt",
@@ -147,10 +123,9 @@ export const POOL: readonly string[] = [
   "Viashino Pyromancer",
   "Volcanic Hammer",
 
-  // Green (29)
+  // Green
   "Aggressive Urge",
   "Ambush Viper",
-  "Bramblewood Paragon",
   "Canopy Spider",
   "Colossal Dreadmaw",
   "Craw Wurm",
@@ -162,8 +137,6 @@ export const POOL: readonly string[] = [
   "Grizzled Outrider",
   "Grizzly Bears",
   "Llanowar Elves",
-  "Netcaster Spider",
-  "Nettle Sentinel",
   "Overrun",
   "Pelakka Wurm",
   "Rumbling Baloth",
@@ -178,8 +151,7 @@ export const POOL: readonly string[] = [
   "Wildsize",
   "Yavimaya Wurm",
 
-  // Multicolor (3)
-  "Nightsky Mimic",
+  // Multicolor
   "Sky Spirit",
   "Skyknight Legionnaire",
 ];

@@ -315,9 +315,16 @@ export function triggerTargets(
 ): TargetSelection {
   const chosen: CardId[] = [];
   for (const filter of filters) {
-    const option = legalTargets(state, filter, controller).find((id) => !chosen.includes(id));
-    if (option === undefined) break;
-    chosen.push(option);
+    const options = legalTargets(state, filter, controller).filter((id) => !chosen.includes(id));
+    if (options.length === 0) break;
+
+    // Nothing can ask who a trigger points at — the Action union has no choice point —
+    // so this picks for the controller. Scanning in battlefield order would hand a
+    // death trigger the controller's *own* creature whenever they happen to be player
+    // 0, which is a real misplay rather than a cosmetic one. Prefer an opponent's
+    // permanent when the filter permits both.
+    const opponentOwned = options.find((id) => state.cards[id]?.controller !== controller);
+    chosen.push(opponentOwned ?? options[0]!);
   }
   return chosen.length > 0 ? chosen : null;
 }

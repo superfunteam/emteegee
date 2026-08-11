@@ -1,0 +1,348 @@
+/*
+ * Title, deck select, result.
+ *
+ * These share the table's skin tokens so switching skins changes the whole app, not
+ * just the game. The deck cards lean on the same art-first idea as the battlefield:
+ * the signature card's illustration is the deck's identity, not a color swatch.
+ */
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--felt);
+  color: var(--ink);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: max(20px, env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
+  animation: screen-in 0.28s cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
+
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- title ---------- */
+
+.title {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.title__mark {
+  font-family: var(--font-serif);
+  font-size: clamp(38px, 13vw, 58px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0;
+  font-weight: 400;
+}
+
+.title__mark em { font-style: italic; color: var(--acc); }
+
+.title__tag {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 0 0 28px;
+  max-width: 30ch;
+  line-height: 1.5;
+}
+
+.title__play {
+  min-width: 200px;
+  padding: 0 26px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--acc);
+  color: var(--acc-on);
+  font-size: 17px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px var(--shade);
+  transition: transform 0.16s;
+}
+
+.title__play:active { transform: scale(0.97); }
+
+.title__row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.title__link {
+  font-size: 13px;
+  color: var(--ink-3);
+  border: 1px solid var(--edge-hi);
+  border-radius: 999px;
+  padding: 0 16px;
+  height: 40px;
+  min-height: 40px;
+}
+
+.title__foot {
+  margin-top: auto;
+  padding-top: 28px;
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.6;
+  max-width: 40ch;
+}
+
+/* ---------- headings ---------- */
+
+.screen__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.screen__title {
+  font-family: var(--font-serif);
+  font-size: 25px;
+  font-weight: 400;
+  margin: 0;
+}
+
+.screen__sub {
+  font-size: 13px;
+  color: var(--ink-2);
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
+.screen__back {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  min-height: 44px;
+}
+
+/* ---------- deck select ---------- */
+
+.decks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* One column below 340px — two 74px-art cards plus gutters stop fitting. */
+@media (max-width: 339px) {
+  .decks { grid-template-columns: 1fr; }
+}
+
+.deck {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--edge-hi);
+  background: var(--zone);
+  padding: 0;
+  text-align: left;
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.25, 1.1), box-shadow 0.18s;
+}
+
+.deck:active { transform: scale(0.98); }
+.deck[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--acc); border-color: var(--acc); }
+
+.deck__art {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  display: block;
+  background: var(--edge);
+}
+
+.deck__body { padding: 9px 11px 11px; }
+
+.deck__name {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.15;
+  margin-bottom: 2px;
+}
+
+.deck__theme {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  line-height: 1.4;
+  min-height: 2.8em;
+}
+
+.deck__pips {
+  display: flex;
+  gap: 4px;
+  margin-top: 7px;
+  align-items: center;
+}
+
+.deck__pip {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gemring);
+  box-shadow: inset 0 -2px 3px rgb(0 0 0 / 0.24);
+}
+
+.deck__teaches {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ---------- difficulty ---------- */
+
+.tiers {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0 8px;
+}
+
+.tier {
+  flex: 1;
+  border-radius: 10px;
+  border: 1px solid var(--edge-hi);
+  background: var(--zone);
+  padding: 11px 9px;
+  text-align: center;
+  transition: box-shadow 0.18s;
+}
+
+.tier[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--acc); border-color: var(--acc); }
+.tier__name { font-size: 13.5px; font-weight: 600; margin-bottom: 3px; }
+.tier__note { font-size: 10.5px; color: var(--ink-3); line-height: 1.35; }
+
+.start {
+  margin-top: 18px;
+  width: 100%;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--acc);
+  color: var(--acc-on);
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px var(--shade);
+}
+
+.start:disabled { opacity: 0.4; box-shadow: none; }
+
+/* ---------- result ---------- */
+
+.result {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.result__verdict {
+  font-family: var(--font-serif);
+  font-size: clamp(34px, 11vw, 46px);
+  line-height: 1;
+  margin: 0;
+  font-weight: 400;
+}
+
+.result__verdict--win { color: var(--acc); }
+.result__verdict--loss { color: var(--danger); }
+
+.result__how {
+  font-size: 14px;
+  color: var(--ink-2);
+  max-width: 32ch;
+  line-height: 1.55;
+  margin: 4px 0 26px;
+}
+
+.result__stats {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.result__stat { text-align: center; }
+
+.result__value {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.result__label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+
+.result__row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+.result__again {
+  height: 48px;
+  padding: 0 26px;
+  border-radius: 999px;
+  background: var(--acc);
+  color: var(--acc-on);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.result__switch {
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 1px solid var(--edge-hi);
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
+/* ---------- settings sheet ---------- */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.setting__label { font-size: 14px; }
+.setting__hint { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; line-height: 1.4; }
+
+.swatches { display: flex; gap: 8px; }
+
+.swatch {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 9px;
+  border: 1px solid var(--edge-hi);
+}
+
+.swatch[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--acc); }
+.swatch--felt { background: #15100d; }
+.swatch--parchment { background: #e4d8c0; }
+.swatch--slate { background: #dfe3e8; }

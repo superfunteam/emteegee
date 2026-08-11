@@ -1,0 +1,5137 @@
+{
+ "savannah-lions": {
+  "oracleId": "savannah-lions",
+  "name": "Savannah Lions",
+  "manaCost": {
+   "W": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Cat"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Winona Nelson",
+  "art": "art/savannah-lions-art.jpg",
+  "image": "art/savannah-lions-card.jpg"
+ },
+ "elite-vanguard": {
+  "oracleId": "elite-vanguard",
+  "name": "Elite Vanguard",
+  "manaCost": {
+   "W": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Soldier"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Mark Tedin",
+  "art": "art/elite-vanguard-art.jpg",
+  "image": "art/elite-vanguard-card.jpg"
+ },
+ "youthful-knight": {
+  "oracleId": "youthful-knight",
+  "name": "Youthful Knight",
+  "manaCost": {
+   "C": 1,
+   "W": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Knight"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "First strike",
+  "keywords": [
+   "first strike"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Heonhwa",
+  "art": "art/youthful-knight-art.jpg",
+  "image": "art/youthful-knight-card.jpg"
+ },
+ "benalish-marshal": {
+  "oracleId": "benalish-marshal",
+  "name": "Benalish Marshal",
+  "manaCost": {
+   "W": 3
+  },
+  "cmc": 3,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Knight"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "oracleText": "Other creatures you control get +1/+1.",
+  "keywords": [],
+  "statics": [
+   {
+    "kind": "staticPump",
+    "filter": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "you"
+    },
+    "power": 1,
+    "toughness": 1,
+    "excludeSelf": true
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Mark Zug",
+  "art": "art/benalish-marshal-art.jpg",
+  "image": "art/benalish-marshal-card.jpg"
+ },
+ "serra-angel": {
+  "oracleId": "serra-angel",
+  "name": "Serra Angel",
+  "manaCost": {
+   "C": 3,
+   "W": 2
+  },
+  "cmc": 5,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Angel"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "oracleText": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+  "keywords": [
+   "flying",
+   "vigilance"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Greg Staples",
+  "art": "art/serra-angel-art.jpg",
+  "image": "art/serra-angel-card.jpg"
+ },
+ "glorious-anthem": {
+  "oracleId": "glorious-anthem",
+  "name": "Glorious Anthem",
+  "manaCost": {
+   "C": 1,
+   "W": 2
+  },
+  "cmc": 3,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "enchantment"
+  ],
+  "subtypes": [],
+  "oracleText": "Creatures you control get +1/+1.",
+  "keywords": [],
+  "statics": [
+   {
+    "kind": "staticPump",
+    "filter": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "you"
+    },
+    "power": 1,
+    "toughness": 1,
+    "excludeSelf": false
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Raymond Swanland",
+  "art": "art/glorious-anthem-art.jpg",
+  "image": "art/glorious-anthem-card.jpg"
+ },
+ "raise-the-alarm": {
+  "oracleId": "raise-the-alarm",
+  "name": "Raise the Alarm",
+  "manaCost": {
+   "C": 1,
+   "W": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Create two 1/1 white Soldier creature tokens.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "createToken",
+    "token": {
+     "name": "Soldier",
+     "power": 1,
+     "toughness": 1,
+     "colors": [
+      "W"
+     ],
+     "subtypes": [
+      "Soldier"
+     ],
+     "keywords": [],
+     "art": "art/token-soldier-art.jpg"
+    },
+    "count": 2
+   }
+  ],
+  "targets": [],
+  "artist": "Zoltan Boros",
+  "art": "art/raise-the-alarm-art.jpg",
+  "image": "art/raise-the-alarm-card.jpg"
+ },
+ "captain-s-call": {
+  "oracleId": "captain-s-call",
+  "name": "Captain's Call",
+  "manaCost": {
+   "C": 3,
+   "W": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Create three 1/1 white Soldier creature tokens.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "createToken",
+    "token": {
+     "name": "Soldier",
+     "power": 1,
+     "toughness": 1,
+     "colors": [
+      "W"
+     ],
+     "subtypes": [
+      "Soldier"
+     ],
+     "keywords": [],
+     "art": "art/token-soldier-art.jpg"
+    },
+    "count": 3
+   }
+  ],
+  "targets": [],
+  "artist": "A. M. Sartor",
+  "art": "art/captain-s-call-art.jpg",
+  "image": "art/captain-s-call-card.jpg"
+ },
+ "wrath-of-god": {
+  "oracleId": "wrath-of-god",
+  "name": "Wrath of God",
+  "manaCost": {
+   "C": 2,
+   "W": 2
+  },
+  "cmc": 4,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Destroy all creatures. They can't be regenerated.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "destroy",
+    "target": {
+     "every": {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "any"
+     }
+    }
+   }
+  ],
+  "targets": [],
+  "artist": "Willian Murai",
+  "art": "art/wrath-of-god-art.jpg",
+  "image": "art/wrath-of-god-card.jpg"
+ },
+ "ajani-s-pridemate": {
+  "oracleId": "ajani-s-pridemate",
+  "name": "Ajani's Pridemate",
+  "manaCost": {
+   "C": 1,
+   "W": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Cat",
+   "Soldier"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Whenever you gain life, put a +1/+1 counter on this creature.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onLifeGain",
+    "effects": [
+     {
+      "kind": "addCounter",
+      "target": "self",
+      "counter": "+1/+1",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Kevin Sidharta",
+  "art": "art/ajani-s-pridemate-art.jpg",
+  "image": "art/ajani-s-pridemate-card.jpg"
+ },
+ "soul-warden": {
+  "oracleId": "soul-warden",
+  "name": "Soul Warden",
+  "manaCost": {
+   "W": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Cleric"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "Whenever another creature enters, you gain 1 life.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onOtherEnterBattlefield",
+    "effects": [
+     {
+      "kind": "gainLife",
+      "player": "you",
+      "amount": 1
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Randy Gallegos",
+  "art": "art/soul-warden-art.jpg",
+  "image": "art/soul-warden-card.jpg"
+ },
+ "angel-of-mercy": {
+  "oracleId": "angel-of-mercy",
+  "name": "Angel of Mercy",
+  "manaCost": {
+   "C": 4,
+   "W": 1
+  },
+  "cmc": 5,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Angel"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "oracleText": "Flying\nWhen this creature enters, you gain 3 life.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "gainLife",
+      "player": "you",
+      "amount": 3
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Volkan Baǵa",
+  "art": "art/angel-of-mercy-art.jpg",
+  "image": "art/angel-of-mercy-card.jpg"
+ },
+ "healer-s-hawk": {
+  "oracleId": "healer-s-hawk",
+  "name": "Healer's Hawk",
+  "manaCost": {
+   "W": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Bird"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "keywords": [
+   "flying",
+   "lifelink"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Milivoj Ćeran",
+  "art": "art/healer-s-hawk-art.jpg",
+  "image": "art/healer-s-hawk-card.jpg"
+ },
+ "wall-of-omens": {
+  "oracleId": "wall-of-omens",
+  "name": "Wall of Omens",
+  "manaCost": {
+   "C": 1,
+   "W": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Wall"
+  ],
+  "power": 0,
+  "toughness": 4,
+  "oracleText": "Defender\nWhen this creature enters, draw a card.",
+  "keywords": [
+   "defender"
+  ],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "draw",
+      "player": "you",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "James Paick",
+  "art": "art/wall-of-omens-art.jpg",
+  "image": "art/wall-of-omens-card.jpg"
+ },
+ "leonin-skyhunter": {
+  "oracleId": "leonin-skyhunter",
+  "name": "Leonin Skyhunter",
+  "manaCost": {
+   "W": 2
+  },
+  "cmc": 2,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Cat",
+   "Knight"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flying",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Kev Walker",
+  "art": "art/leonin-skyhunter-art.jpg",
+  "image": "art/leonin-skyhunter-card.jpg"
+ },
+ "holy-strength": {
+  "oracleId": "holy-strength",
+  "name": "Holy Strength",
+  "manaCost": {
+   "W": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "enchantment"
+  ],
+  "subtypes": [
+   "Aura"
+  ],
+  "oracleText": "Enchant creature\nEnchanted creature gets +1/+2.",
+  "keywords": [],
+  "statics": [
+   {
+    "kind": "aura",
+    "attachTo": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 1,
+    "toughness": 2,
+    "keywords": []
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Terese Nielsen",
+  "art": "art/holy-strength-art.jpg",
+  "image": "art/holy-strength-card.jpg"
+ },
+ "veteran-swordsmith": {
+  "oracleId": "veteran-swordsmith",
+  "name": "Veteran Swordsmith",
+  "manaCost": {
+   "C": 2,
+   "W": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Soldier"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "oracleText": "Other Soldier creatures you control get +1/+0.",
+  "keywords": [],
+  "statics": [
+   {
+    "kind": "staticPump",
+    "filter": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "you",
+     "subtypes": [
+      "Soldier"
+     ]
+    },
+    "power": 1,
+    "toughness": 0,
+    "excludeSelf": true
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Michael Komarck",
+  "art": "art/veteran-swordsmith-art.jpg",
+  "image": "art/veteran-swordsmith-card.jpg"
+ },
+ "skyknight-legionnaire": {
+  "oracleId": "skyknight-legionnaire",
+  "name": "Skyknight Legionnaire",
+  "manaCost": {
+   "C": 1,
+   "R": 1,
+   "W": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "R",
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Knight"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flying, haste",
+  "keywords": [
+   "flying",
+   "haste"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jim Murray",
+  "art": "art/skyknight-legionnaire-art.jpg",
+  "image": "art/skyknight-legionnaire-card.jpg"
+ },
+ "sunlance": {
+  "oracleId": "sunlance",
+  "name": "Sunlance",
+  "manaCost": {
+   "W": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Sunlance deals 3 damage to target nonwhite creature.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "damage",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any",
+     "notColors": [
+      "W"
+     ]
+    },
+    "amount": 3
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any",
+    "notColors": [
+     "W"
+    ]
+   }
+  ],
+  "artist": "Volkan Baǵa",
+  "art": "art/sunlance-art.jpg",
+  "image": "art/sunlance-card.jpg"
+ },
+ "gideon-s-lawkeeper": {
+  "oracleId": "gideon-s-lawkeeper",
+  "name": "Gideon's Lawkeeper",
+  "manaCost": {
+   "W": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Soldier"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "{W}, {T}: Tap target creature.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "W": 1
+     },
+     "tapSelf": true
+    },
+    "effects": [
+     {
+      "kind": "tap",
+      "target": {
+       "zone": "battlefield",
+       "cardTypes": [
+        "creature"
+       ],
+       "controller": "any"
+      }
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": [
+     {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "any"
+     }
+    ]
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Steve Prescott",
+  "art": "art/gideon-s-lawkeeper-art.jpg",
+  "image": "art/gideon-s-lawkeeper-card.jpg"
+ },
+ "master-decoy": {
+  "oracleId": "master-decoy",
+  "name": "Master Decoy",
+  "manaCost": {
+   "C": 1,
+   "W": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Soldier"
+  ],
+  "power": 1,
+  "toughness": 2,
+  "oracleText": "{W}, {T}: Tap target creature.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "W": 1
+     },
+     "tapSelf": true
+    },
+    "effects": [
+     {
+      "kind": "tap",
+      "target": {
+       "zone": "battlefield",
+       "cardTypes": [
+        "creature"
+       ],
+       "controller": "any"
+      }
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": [
+     {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "any"
+     }
+    ]
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Phil Foglio",
+  "art": "art/master-decoy-art.jpg",
+  "image": "art/master-decoy-card.jpg"
+ },
+ "benalish-knight": {
+  "oracleId": "benalish-knight",
+  "name": "Benalish Knight",
+  "manaCost": {
+   "C": 2,
+   "W": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Knight"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flash (You may cast this spell any time you could cast an instant.)\nFirst strike (This creature deals combat damage before creatures without first strike.)",
+  "keywords": [
+   "first strike",
+   "flash"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Zoltan Boros & Gabor Szikszai",
+  "art": "art/benalish-knight-art.jpg",
+  "image": "art/benalish-knight-card.jpg"
+ },
+ "kinsbaile-skirmisher": {
+  "oracleId": "kinsbaile-skirmisher",
+  "name": "Kinsbaile Skirmisher",
+  "manaCost": {
+   "C": 1,
+   "W": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Kithkin",
+   "Soldier"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "When this creature enters, target creature gets +1/+1 until end of turn.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "pump",
+      "target": {
+       "zone": "battlefield",
+       "cardTypes": [
+        "creature"
+       ],
+       "controller": "any"
+      },
+      "power": 1,
+      "toughness": 1,
+      "duration": "endOfTurn"
+     }
+    ],
+    "targets": [
+     {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "any"
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Thomas Denmark",
+  "art": "art/kinsbaile-skirmisher-art.jpg",
+  "image": "art/kinsbaile-skirmisher-card.jpg"
+ },
+ "suntail-hawk": {
+  "oracleId": "suntail-hawk",
+  "name": "Suntail Hawk",
+  "manaCost": {
+   "W": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Bird"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "Flying",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Heather Hudson",
+  "art": "art/suntail-hawk-art.jpg",
+  "image": "art/suntail-hawk-card.jpg"
+ },
+ "field-marshal": {
+  "oracleId": "field-marshal",
+  "name": "Field Marshal",
+  "manaCost": {
+   "C": 1,
+   "W": 2
+  },
+  "cmc": 3,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Soldier"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Other Soldier creatures get +1/+1 and have first strike. (They deal combat damage before creatures without first strike.)",
+  "keywords": [],
+  "statics": [
+   {
+    "kind": "staticPump",
+    "filter": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any",
+     "subtypes": [
+      "Soldier"
+     ]
+    },
+    "power": 1,
+    "toughness": 1,
+    "excludeSelf": true,
+    "keywords": [
+     "first strike"
+    ]
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Stephen Tappin",
+  "art": "art/field-marshal-art.jpg",
+  "image": "art/field-marshal-card.jpg"
+ },
+ "alaborn-trooper": {
+  "oracleId": "alaborn-trooper",
+  "name": "Alaborn Trooper",
+  "manaCost": {
+   "C": 2,
+   "W": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Soldier"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Lubov",
+  "art": "art/alaborn-trooper-art.jpg",
+  "image": "art/alaborn-trooper-card.jpg"
+ },
+ "standing-troops": {
+  "oracleId": "standing-troops",
+  "name": "Standing Troops",
+  "manaCost": {
+   "C": 2,
+   "W": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Soldier"
+  ],
+  "power": 1,
+  "toughness": 4,
+  "oracleText": "Vigilance",
+  "keywords": [
+   "vigilance"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Zoltan Boros",
+  "art": "art/standing-troops-art.jpg",
+  "image": "art/standing-troops-card.jpg"
+ },
+ "air-elemental": {
+  "oracleId": "air-elemental",
+  "name": "Air Elemental",
+  "manaCost": {
+   "C": 3,
+   "U": 2
+  },
+  "cmc": 5,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elemental"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "oracleText": "Flying",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Tomasz Jedruszek",
+  "art": "art/air-elemental-art.jpg",
+  "image": "art/air-elemental-card.jpg"
+ },
+ "wind-drake": {
+  "oracleId": "wind-drake",
+  "name": "Wind Drake",
+  "manaCost": {
+   "C": 2,
+   "U": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Drake"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flying",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Todd Lockwood",
+  "art": "art/wind-drake-art.jpg",
+  "image": "art/wind-drake-card.jpg"
+ },
+ "snapping-drake": {
+  "oracleId": "snapping-drake",
+  "name": "Snapping Drake",
+  "manaCost": {
+   "C": 3,
+   "U": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Drake"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "oracleText": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Todd Lockwood",
+  "art": "art/snapping-drake-art.jpg",
+  "image": "art/snapping-drake-card.jpg"
+ },
+ "serendib-efreet": {
+  "oracleId": "serendib-efreet",
+  "name": "Serendib Efreet",
+  "manaCost": {
+   "C": 2,
+   "U": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Efreet"
+  ],
+  "power": 3,
+  "toughness": 4,
+  "oracleText": "Flying\nAt the beginning of your upkeep, this creature deals 1 damage to you.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onUpkeep",
+    "effects": [
+     {
+      "kind": "loseLife",
+      "player": "you",
+      "amount": 1
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Matt Stewart",
+  "art": "art/serendib-efreet-art.jpg",
+  "image": "art/serendib-efreet-card.jpg"
+ },
+ "phantom-monster": {
+  "oracleId": "phantom-monster",
+  "name": "Phantom Monster",
+  "manaCost": {
+   "C": 3,
+   "U": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Illusion"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "oracleText": "Flying",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Richard Wright",
+  "art": "art/phantom-monster-art.jpg",
+  "image": "art/phantom-monster-card.jpg"
+ },
+ "man-o-war": {
+  "oracleId": "man-o-war",
+  "name": "Man-o'-War",
+  "manaCost": {
+   "C": 2,
+   "U": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Jellyfish"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "When this creature enters, return target creature to its owner's hand.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "returnToHand",
+      "target": {
+       "zone": "battlefield",
+       "cardTypes": [
+        "creature"
+       ],
+       "controller": "any"
+      }
+     }
+    ],
+    "targets": [
+     {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "any"
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jon J Muth",
+  "art": "art/man-o-war-art.jpg",
+  "image": "art/man-o-war-card.jpg"
+ },
+ "cloudkin-seer": {
+  "oracleId": "cloudkin-seer",
+  "name": "Cloudkin Seer",
+  "manaCost": {
+   "C": 2,
+   "U": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elemental",
+   "Wizard"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "Flying\nWhen this creature enters, draw a card.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "draw",
+      "player": "you",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Anastasia Ovchinnikova",
+  "art": "art/cloudkin-seer-art.jpg",
+  "image": "art/cloudkin-seer-card.jpg"
+ },
+ "mist-raven": {
+  "oracleId": "mist-raven",
+  "name": "Mist Raven",
+  "manaCost": {
+   "C": 2,
+   "U": 2
+  },
+  "cmc": 4,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Bird"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flying\nWhen this creature enters, return target creature to its owner's hand.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "returnToHand",
+      "target": {
+       "zone": "battlefield",
+       "cardTypes": [
+        "creature"
+       ],
+       "controller": "any"
+      }
+     }
+    ],
+    "targets": [
+     {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "any"
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "John Avon",
+  "art": "art/mist-raven-art.jpg",
+  "image": "art/mist-raven-card.jpg"
+ },
+ "azure-drake": {
+  "oracleId": "azure-drake",
+  "name": "Azure Drake",
+  "manaCost": {
+   "C": 3,
+   "U": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Drake"
+  ],
+  "power": 2,
+  "toughness": 4,
+  "oracleText": "Flying",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Janine Johnston",
+  "art": "art/azure-drake-art.jpg",
+  "image": "art/azure-drake-card.jpg"
+ },
+ "wall-of-air": {
+  "oracleId": "wall-of-air",
+  "name": "Wall of Air",
+  "manaCost": {
+   "C": 1,
+   "U": 2
+  },
+  "cmc": 3,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Wall"
+  ],
+  "power": 1,
+  "toughness": 5,
+  "oracleText": "Defender, flying (This creature can't attack, and it can block creatures with flying.)",
+  "keywords": [
+   "flying",
+   "defender"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "John Avon",
+  "art": "art/wall-of-air-art.jpg",
+  "image": "art/wall-of-air-card.jpg"
+ },
+ "unsummon": {
+  "oracleId": "unsummon",
+  "name": "Unsummon",
+  "manaCost": {
+   "U": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Return target creature to its owner's hand.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "returnToHand",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    }
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Ron Spencer",
+  "art": "art/unsummon-art.jpg",
+  "image": "art/unsummon-card.jpg"
+ },
+ "divination": {
+  "oracleId": "divination",
+  "name": "Divination",
+  "manaCost": {
+   "C": 2,
+   "U": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Draw two cards.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "draw",
+    "player": "you",
+    "count": 2
+   }
+  ],
+  "targets": [],
+  "artist": "Willian Murai",
+  "art": "art/divination-art.jpg",
+  "image": "art/divination-card.jpg"
+ },
+ "opt": {
+  "oracleId": "opt",
+  "name": "Opt",
+  "manaCost": {
+   "U": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "scry",
+    "count": 1
+   },
+   {
+    "kind": "draw",
+    "player": "you",
+    "count": 1
+   }
+  ],
+  "targets": [],
+  "artist": "Craig J Spearing",
+  "art": "art/opt-art.jpg",
+  "image": "art/opt-card.jpg"
+ },
+ "preordain": {
+  "oracleId": "preordain",
+  "name": "Preordain",
+  "manaCost": {
+   "U": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Scry 2, then draw a card. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "scry",
+    "count": 2
+   },
+   {
+    "kind": "draw",
+    "player": "you",
+    "count": 1
+   }
+  ],
+  "targets": [],
+  "artist": "Svetlin Velinov",
+  "art": "art/preordain-art.jpg",
+  "image": "art/preordain-card.jpg"
+ },
+ "counterspell": {
+  "oracleId": "counterspell",
+  "name": "Counterspell",
+  "manaCost": {
+   "U": 2
+  },
+  "cmc": 2,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Counter target spell.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "counterSpell"
+   }
+  ],
+  "targets": [
+   {
+    "zone": "stack",
+    "controller": "any"
+   }
+  ],
+  "artist": "Zack Stella",
+  "art": "art/counterspell-art.jpg",
+  "image": "art/counterspell-card.jpg"
+ },
+ "essence-scatter": {
+  "oracleId": "essence-scatter",
+  "name": "Essence Scatter",
+  "manaCost": {
+   "C": 1,
+   "U": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Counter target creature spell.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "counterSpell"
+   }
+  ],
+  "targets": [
+   {
+    "zone": "stack",
+    "controller": "any",
+    "cardTypes": [
+     "creature"
+    ]
+   }
+  ],
+  "artist": "Elliot Lang",
+  "art": "art/essence-scatter-art.jpg",
+  "image": "art/essence-scatter-card.jpg"
+ },
+ "negate": {
+  "oracleId": "negate",
+  "name": "Negate",
+  "manaCost": {
+   "C": 1,
+   "U": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Counter target noncreature spell.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "counterSpell"
+   }
+  ],
+  "targets": [
+   {
+    "zone": "stack",
+    "controller": "any",
+    "cardTypes": [
+     "instant",
+     "sorcery",
+     "enchantment",
+     "artifact"
+    ]
+   }
+  ],
+  "artist": "Ryan Valle",
+  "art": "art/negate-art.jpg",
+  "image": "art/negate-card.jpg"
+ },
+ "sky-spirit": {
+  "oracleId": "sky-spirit",
+  "name": "Sky Spirit",
+  "manaCost": {
+   "C": 1,
+   "W": 1,
+   "U": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "U",
+   "W"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Spirit"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flying, first strike",
+  "keywords": [
+   "flying",
+   "first strike"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Rebecca Guay",
+  "art": "art/sky-spirit-art.jpg",
+  "image": "art/sky-spirit-card.jpg"
+ },
+ "storm-crow": {
+  "oracleId": "storm-crow",
+  "name": "Storm Crow",
+  "manaCost": {
+   "C": 1,
+   "U": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Bird"
+  ],
+  "power": 1,
+  "toughness": 2,
+  "oracleText": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "John Matson",
+  "art": "art/storm-crow-art.jpg",
+  "image": "art/storm-crow-card.jpg"
+ },
+ "horned-turtle": {
+  "oracleId": "horned-turtle",
+  "name": "Horned Turtle",
+  "manaCost": {
+   "C": 2,
+   "U": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Turtle"
+  ],
+  "power": 1,
+  "toughness": 4,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "DiTerlizzi",
+  "art": "art/horned-turtle-art.jpg",
+  "image": "art/horned-turtle-card.jpg"
+ },
+ "coral-merfolk": {
+  "oracleId": "coral-merfolk",
+  "name": "Coral Merfolk",
+  "manaCost": {
+   "C": 1,
+   "U": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Merfolk"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Lie Setiawan",
+  "art": "art/coral-merfolk-art.jpg",
+  "image": "art/coral-merfolk-card.jpg"
+ },
+ "merfolk-looter": {
+  "oracleId": "merfolk-looter",
+  "name": "Merfolk Looter",
+  "manaCost": {
+   "C": 1,
+   "U": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Merfolk",
+   "Rogue"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "{T}: Draw a card, then discard a card.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "tapSelf": true
+    },
+    "effects": [
+     {
+      "kind": "draw",
+      "player": "you",
+      "count": 1
+     },
+     {
+      "kind": "discard",
+      "player": "you",
+      "count": 1
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Tristan Elwell",
+  "art": "art/merfolk-looter-art.jpg",
+  "image": "art/merfolk-looter-card.jpg"
+ },
+ "zephyr-falcon": {
+  "oracleId": "zephyr-falcon",
+  "name": "Zephyr Falcon",
+  "manaCost": {
+   "C": 1,
+   "U": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "U"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Bird"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "Flying, vigilance",
+  "keywords": [
+   "flying",
+   "vigilance"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Heather Hudson",
+  "art": "art/zephyr-falcon-art.jpg",
+  "image": "art/zephyr-falcon-card.jpg"
+ },
+ "llanowar-elves": {
+  "oracleId": "llanowar-elves",
+  "name": "Llanowar Elves",
+  "manaCost": {
+   "G": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elf",
+   "Druid"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "{T}: Add {G}.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "tapSelf": true
+    },
+    "effects": [
+     {
+      "kind": "addMana",
+      "colors": [
+       "G"
+      ]
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Kev Walker",
+  "art": "art/llanowar-elves-art.jpg",
+  "image": "art/llanowar-elves-card.jpg"
+ },
+ "elvish-mystic": {
+  "oracleId": "elvish-mystic",
+  "name": "Elvish Mystic",
+  "manaCost": {
+   "G": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elf",
+   "Druid"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "{T}: Add {G}.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "tapSelf": true
+    },
+    "effects": [
+     {
+      "kind": "addMana",
+      "colors": [
+       "G"
+      ]
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Iga Oliwiak",
+  "art": "art/elvish-mystic-art.jpg",
+  "image": "art/elvish-mystic-card.jpg"
+ },
+ "grizzly-bears": {
+  "oracleId": "grizzly-bears",
+  "name": "Grizzly Bears",
+  "manaCost": {
+   "C": 1,
+   "G": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Bear"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "D. J. Cleland-Hura",
+  "art": "art/grizzly-bears-art.jpg",
+  "image": "art/grizzly-bears-card.jpg"
+ },
+ "craw-wurm": {
+  "oracleId": "craw-wurm",
+  "name": "Craw Wurm",
+  "manaCost": {
+   "C": 4,
+   "G": 2
+  },
+  "cmc": 6,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Wurm"
+  ],
+  "power": 6,
+  "toughness": 4,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Richard Sardinha",
+  "art": "art/craw-wurm-art.jpg",
+  "image": "art/craw-wurm-card.jpg"
+ },
+ "giant-growth": {
+  "oracleId": "giant-growth",
+  "name": "Giant Growth",
+  "manaCost": {
+   "G": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Target creature gets +3/+3 until end of turn.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "pump",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 3,
+    "toughness": 3,
+    "duration": "endOfTurn"
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Andreia Ugrai",
+  "art": "art/giant-growth-art.jpg",
+  "image": "art/giant-growth-card.jpg"
+ },
+ "colossal-dreadmaw": {
+  "oracleId": "colossal-dreadmaw",
+  "name": "Colossal Dreadmaw",
+  "manaCost": {
+   "C": 4,
+   "G": 2
+  },
+  "cmc": 6,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Dinosaur"
+  ],
+  "power": 6,
+  "toughness": 6,
+  "oracleText": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "keywords": [
+   "trample"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jesper Ejsing",
+  "art": "art/colossal-dreadmaw-art.jpg",
+  "image": "art/colossal-dreadmaw-card.jpg"
+ },
+ "giant-spider": {
+  "oracleId": "giant-spider",
+  "name": "Giant Spider",
+  "manaCost": {
+   "C": 3,
+   "G": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Spider"
+  ],
+  "power": 2,
+  "toughness": 4,
+  "oracleText": "Reach (This creature can block creatures with flying.)",
+  "keywords": [
+   "reach"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Randy Gallegos",
+  "art": "art/giant-spider-art.jpg",
+  "image": "art/giant-spider-card.jpg"
+ },
+ "garruk-s-companion": {
+  "oracleId": "garruk-s-companion",
+  "name": "Garruk's Companion",
+  "manaCost": {
+   "G": 2
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Beast"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "oracleText": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "keywords": [
+   "trample"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Efrem Palacios",
+  "art": "art/garruk-s-companion-art.jpg",
+  "image": "art/garruk-s-companion-card.jpg"
+ },
+ "rumbling-baloth": {
+  "oracleId": "rumbling-baloth",
+  "name": "Rumbling Baloth",
+  "manaCost": {
+   "C": 2,
+   "G": 2
+  },
+  "cmc": 4,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Beast"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jesper Ejsing",
+  "art": "art/rumbling-baloth-art.jpg",
+  "image": "art/rumbling-baloth-card.jpg"
+ },
+ "overrun": {
+  "oracleId": "overrun",
+  "name": "Overrun",
+  "manaCost": {
+   "C": 2,
+   "G": 3
+  },
+  "cmc": 5,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Creatures you control get +3/+3 and gain trample until end of turn. (Each of those creatures can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "pump",
+    "target": {
+     "every": {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "you"
+     }
+    },
+    "power": 3,
+    "toughness": 3,
+    "duration": "endOfTurn"
+   },
+   {
+    "kind": "grantKeyword",
+    "target": {
+     "every": {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "you"
+     }
+    },
+    "keyword": "trample",
+    "duration": "endOfTurn"
+   }
+  ],
+  "targets": [],
+  "artist": "Carl Critchlow",
+  "art": "art/overrun-art.jpg",
+  "image": "art/overrun-card.jpg"
+ },
+ "aggressive-urge": {
+  "oracleId": "aggressive-urge",
+  "name": "Aggressive Urge",
+  "manaCost": {
+   "C": 1,
+   "G": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Target creature gets +1/+1 until end of turn.\nDraw a card.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "pump",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 1,
+    "toughness": 1,
+    "duration": "endOfTurn"
+   },
+   {
+    "kind": "draw",
+    "player": "you",
+    "count": 1
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Christopher Moeller",
+  "art": "art/aggressive-urge-art.jpg",
+  "image": "art/aggressive-urge-card.jpg"
+ },
+ "titanic-growth": {
+  "oracleId": "titanic-growth",
+  "name": "Titanic Growth",
+  "manaCost": {
+   "C": 1,
+   "G": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Target creature gets +4/+4 until end of turn.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "pump",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 4,
+    "toughness": 4,
+    "duration": "endOfTurn"
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Iris Compiet",
+  "art": "art/titanic-growth-art.jpg",
+  "image": "art/titanic-growth-card.jpg"
+ },
+ "vastwood-gorger": {
+  "oracleId": "vastwood-gorger",
+  "name": "Vastwood Gorger",
+  "manaCost": {
+   "C": 5,
+   "G": 1
+  },
+  "cmc": 6,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Wurm"
+  ],
+  "power": 5,
+  "toughness": 6,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Kieran Yanner",
+  "art": "art/vastwood-gorger-art.jpg",
+  "image": "art/vastwood-gorger-card.jpg"
+ },
+ "ambush-viper": {
+  "oracleId": "ambush-viper",
+  "name": "Ambush Viper",
+  "manaCost": {
+   "C": 1,
+   "G": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Snake"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "Flash\nDeathtouch",
+  "keywords": [
+   "flash",
+   "deathtouch"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Alan Pollack",
+  "art": "art/ambush-viper-art.jpg",
+  "image": "art/ambush-viper-card.jpg"
+ },
+ "pelakka-wurm": {
+  "oracleId": "pelakka-wurm",
+  "name": "Pelakka Wurm",
+  "manaCost": {
+   "C": 4,
+   "G": 3
+  },
+  "cmc": 7,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Wurm"
+  ],
+  "power": 7,
+  "toughness": 7,
+  "oracleText": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nWhen this creature enters, you gain 7 life.\nWhen this creature dies, draw a card.",
+  "keywords": [
+   "trample"
+  ],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "gainLife",
+      "player": "you",
+      "amount": 7
+     }
+    ]
+   },
+   {
+    "on": "onDies",
+    "effects": [
+     {
+      "kind": "draw",
+      "player": "you",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Daniel Ljunggren",
+  "art": "art/pelakka-wurm-art.jpg",
+  "image": "art/pelakka-wurm-card.jpg"
+ },
+ "runeclaw-bear": {
+  "oracleId": "runeclaw-bear",
+  "name": "Runeclaw Bear",
+  "manaCost": {
+   "C": 1,
+   "G": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Bear"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jesper Ejsing",
+  "art": "art/runeclaw-bear-art.jpg",
+  "image": "art/runeclaw-bear-card.jpg"
+ },
+ "wall-of-wood": {
+  "oracleId": "wall-of-wood",
+  "name": "Wall of Wood",
+  "manaCost": {
+   "G": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Wall"
+  ],
+  "power": 0,
+  "toughness": 3,
+  "oracleText": "Defender (This creature can't attack.)",
+  "keywords": [
+   "defender"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Rebecca Guay",
+  "art": "art/wall-of-wood-art.jpg",
+  "image": "art/wall-of-wood-card.jpg"
+ },
+ "vine-trellis": {
+  "oracleId": "vine-trellis",
+  "name": "Vine Trellis",
+  "manaCost": {
+   "C": 1,
+   "G": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Plant",
+   "Wall"
+  ],
+  "power": 0,
+  "toughness": 4,
+  "oracleText": "Defender (This creature can't attack.)\n{T}: Add {G}.",
+  "keywords": [
+   "defender"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "tapSelf": true
+    },
+    "effects": [
+     {
+      "kind": "addMana",
+      "colors": [
+       "G"
+      ]
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "DiTerlizzi",
+  "art": "art/vine-trellis-art.jpg",
+  "image": "art/vine-trellis-card.jpg"
+ },
+ "elvish-warrior": {
+  "oracleId": "elvish-warrior",
+  "name": "Elvish Warrior",
+  "manaCost": {
+   "G": 2
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elf",
+   "Warrior"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Christopher Moeller",
+  "art": "art/elvish-warrior-art.jpg",
+  "image": "art/elvish-warrior-card.jpg"
+ },
+ "silverback-ape": {
+  "oracleId": "silverback-ape",
+  "name": "Silverback Ape",
+  "manaCost": {
+   "C": 3,
+   "G": 2
+  },
+  "cmc": 5,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Ape"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Ron Spears",
+  "art": "art/silverback-ape-art.jpg",
+  "image": "art/silverback-ape-card.jpg"
+ },
+ "grizzled-outrider": {
+  "oracleId": "grizzled-outrider",
+  "name": "Grizzled Outrider",
+  "manaCost": {
+   "C": 4,
+   "G": 1
+  },
+  "cmc": 5,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elf",
+   "Warrior"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Cristi Balanescu",
+  "art": "art/grizzled-outrider-art.jpg",
+  "image": "art/grizzled-outrider-card.jpg"
+ },
+ "canopy-spider": {
+  "oracleId": "canopy-spider",
+  "name": "Canopy Spider",
+  "manaCost": {
+   "C": 1,
+   "G": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Spider"
+  ],
+  "power": 1,
+  "toughness": 3,
+  "oracleText": "Reach (This creature can block creatures with flying.)",
+  "keywords": [
+   "reach"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Christopher Rush",
+  "art": "art/canopy-spider-art.jpg",
+  "image": "art/canopy-spider-card.jpg"
+ },
+ "yavimaya-wurm": {
+  "oracleId": "yavimaya-wurm",
+  "name": "Yavimaya Wurm",
+  "manaCost": {
+   "C": 4,
+   "G": 2
+  },
+  "cmc": 6,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Wurm"
+  ],
+  "power": 6,
+  "toughness": 4,
+  "oracleText": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "keywords": [
+   "trample"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Steven Belledin",
+  "art": "art/yavimaya-wurm-art.jpg",
+  "image": "art/yavimaya-wurm-card.jpg"
+ },
+ "spined-wurm": {
+  "oracleId": "spined-wurm",
+  "name": "Spined Wurm",
+  "manaCost": {
+   "C": 4,
+   "G": 1
+  },
+  "cmc": 5,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Wurm"
+  ],
+  "power": 5,
+  "toughness": 4,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Keith Parkinson",
+  "art": "art/spined-wurm-art.jpg",
+  "image": "art/spined-wurm-card.jpg"
+ },
+ "trained-armodon": {
+  "oracleId": "trained-armodon",
+  "name": "Trained Armodon",
+  "manaCost": {
+   "C": 1,
+   "G": 2
+  },
+  "cmc": 3,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elephant"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Gary Leach",
+  "art": "art/trained-armodon-art.jpg",
+  "image": "art/trained-armodon-card.jpg"
+ },
+ "wildsize": {
+  "oracleId": "wildsize",
+  "name": "Wildsize",
+  "manaCost": {
+   "C": 2,
+   "G": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "G"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Target creature gets +2/+2 and gains trample until end of turn.\nDraw a card.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "pump",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 2,
+    "toughness": 2,
+    "duration": "endOfTurn"
+   },
+   {
+    "kind": "grantKeyword",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "keyword": "trample",
+    "duration": "endOfTurn"
+   },
+   {
+    "kind": "draw",
+    "player": "you",
+    "count": 1
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Jim Murray",
+  "art": "art/wildsize-art.jpg",
+  "image": "art/wildsize-card.jpg"
+ },
+ "raging-goblin": {
+  "oracleId": "raging-goblin",
+  "name": "Raging Goblin",
+  "manaCost": {
+   "R": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin",
+   "Berserker"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "Haste (This creature can attack and {T} as soon as it comes under your control.)",
+  "keywords": [
+   "haste"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jakub Kasper",
+  "art": "art/raging-goblin-art.jpg",
+  "image": "art/raging-goblin-card.jpg"
+ },
+ "goblin-piker": {
+  "oracleId": "goblin-piker",
+  "name": "Goblin Piker",
+  "manaCost": {
+   "C": 1,
+   "R": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin",
+   "Warrior"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "DiTerlizzi",
+  "art": "art/goblin-piker-art.jpg",
+  "image": "art/goblin-piker-card.jpg"
+ },
+ "mons-s-goblin-raiders": {
+  "oracleId": "mons-s-goblin-raiders",
+  "name": "Mons's Goblin Raiders",
+  "manaCost": {
+   "R": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Pete Venters",
+  "art": "art/mons-s-goblin-raiders-art.jpg",
+  "image": "art/mons-s-goblin-raiders-card.jpg"
+ },
+ "goblin-chieftain": {
+  "oracleId": "goblin-chieftain",
+  "name": "Goblin Chieftain",
+  "manaCost": {
+   "C": 1,
+   "R": 2
+  },
+  "cmc": 3,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Haste (This creature can attack and {T} as soon as it comes under your control.)\nOther Goblin creatures you control get +1/+1 and have haste.",
+  "keywords": [
+   "haste"
+  ],
+  "statics": [
+   {
+    "kind": "staticPump",
+    "filter": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "you",
+     "subtypes": [
+      "Goblin"
+     ]
+    },
+    "power": 1,
+    "toughness": 1,
+    "excludeSelf": true,
+    "keywords": [
+     "haste"
+    ]
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Sam Wood",
+  "art": "art/goblin-chieftain-art.jpg",
+  "image": "art/goblin-chieftain-card.jpg"
+ },
+ "shivan-dragon": {
+  "oracleId": "shivan-dragon",
+  "name": "Shivan Dragon",
+  "manaCost": {
+   "C": 4,
+   "R": 2
+  },
+  "cmc": 6,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Dragon"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "oracleText": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "R": 1
+     }
+    },
+    "effects": [
+     {
+      "kind": "pump",
+      "target": "self",
+      "power": 1,
+      "toughness": 0,
+      "duration": "endOfTurn"
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Donato Giancola",
+  "art": "art/shivan-dragon-art.jpg",
+  "image": "art/shivan-dragon-card.jpg"
+ },
+ "lightning-bolt": {
+  "oracleId": "lightning-bolt",
+  "name": "Lightning Bolt",
+  "manaCost": {
+   "R": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Lightning Bolt deals 3 damage to any target.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "damage",
+    "target": "any",
+    "amount": 3
+   }
+  ],
+  "targets": [],
+  "artist": "Milivoj Ćeran",
+  "art": "art/lightning-bolt-art.jpg",
+  "image": "art/lightning-bolt-card.jpg"
+ },
+ "shock": {
+  "oracleId": "shock",
+  "name": "Shock",
+  "manaCost": {
+   "R": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Shock deals 2 damage to any target.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "damage",
+    "target": "any",
+    "amount": 2
+   }
+  ],
+  "targets": [],
+  "artist": "Piotr Dura",
+  "art": "art/shock-art.jpg",
+  "image": "art/shock-card.jpg"
+ },
+ "incinerate": {
+  "oracleId": "incinerate",
+  "name": "Incinerate",
+  "manaCost": {
+   "C": 1,
+   "R": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Incinerate deals 3 damage to any target. A creature dealt damage this way can't be regenerated this turn.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "damage",
+    "target": "any",
+    "amount": 3
+   }
+  ],
+  "targets": [],
+  "artist": "Steve Prescott",
+  "art": "art/incinerate-art.jpg",
+  "image": "art/incinerate-card.jpg"
+ },
+ "searing-spear": {
+  "oracleId": "searing-spear",
+  "name": "Searing Spear",
+  "manaCost": {
+   "C": 1,
+   "R": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Searing Spear deals 3 damage to any target.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "damage",
+    "target": "any",
+    "amount": 3
+   }
+  ],
+  "targets": [],
+  "artist": "Chris Rahn",
+  "art": "art/searing-spear-art.jpg",
+  "image": "art/searing-spear-card.jpg"
+ },
+ "volcanic-hammer": {
+  "oracleId": "volcanic-hammer",
+  "name": "Volcanic Hammer",
+  "manaCost": {
+   "C": 1,
+   "R": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Volcanic Hammer deals 3 damage to any target.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "damage",
+    "target": "any",
+    "amount": 3
+   }
+  ],
+  "targets": [],
+  "artist": "Ben Thompson",
+  "art": "art/volcanic-hammer-art.jpg",
+  "image": "art/volcanic-hammer-card.jpg"
+ },
+ "ember-hauler": {
+  "oracleId": "ember-hauler",
+  "name": "Ember Hauler",
+  "manaCost": {
+   "R": 2
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "{1}, Sacrifice this creature: It deals 2 damage to any target.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "C": 1
+     },
+     "sacrificeSelf": true
+    },
+    "effects": [
+     {
+      "kind": "damage",
+      "target": "any",
+      "amount": 2
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Steve Prescott",
+  "art": "art/ember-hauler-art.jpg",
+  "image": "art/ember-hauler-card.jpg"
+ },
+ "mogg-fanatic": {
+  "oracleId": "mogg-fanatic",
+  "name": "Mogg Fanatic",
+  "manaCost": {
+   "R": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "Sacrifice this creature: It deals 1 damage to any target.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "sacrificeSelf": true
+    },
+    "effects": [
+     {
+      "kind": "damage",
+      "target": "any",
+      "amount": 1
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Brom",
+  "art": "art/mogg-fanatic-art.jpg",
+  "image": "art/mogg-fanatic-card.jpg"
+ },
+ "furnace-whelp": {
+  "oracleId": "furnace-whelp",
+  "name": "Furnace Whelp",
+  "manaCost": {
+   "C": 2,
+   "R": 2
+  },
+  "cmc": 4,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Dragon"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "R": 1
+     }
+    },
+    "effects": [
+     {
+      "kind": "pump",
+      "target": "self",
+      "power": 1,
+      "toughness": 0,
+      "duration": "endOfTurn"
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Shreya Shetty",
+  "art": "art/furnace-whelp-art.jpg",
+  "image": "art/furnace-whelp-card.jpg"
+ },
+ "goblin-balloon-brigade": {
+  "oracleId": "goblin-balloon-brigade",
+  "name": "Goblin Balloon Brigade",
+  "manaCost": {
+   "R": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin",
+   "Warrior"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "{R}: This creature gains flying until end of turn.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "R": 1
+     }
+    },
+    "effects": [
+     {
+      "kind": "grantKeyword",
+      "target": "self",
+      "keyword": "flying",
+      "duration": "endOfTurn"
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Lars Grant-West",
+  "art": "art/goblin-balloon-brigade-art.jpg",
+  "image": "art/goblin-balloon-brigade-card.jpg"
+ },
+ "goblin-roughrider": {
+  "oracleId": "goblin-roughrider",
+  "name": "Goblin Roughrider",
+  "manaCost": {
+   "C": 2,
+   "R": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin",
+   "Knight"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jesper Ejsing",
+  "art": "art/goblin-roughrider-art.jpg",
+  "image": "art/goblin-roughrider-card.jpg"
+ },
+ "hill-giant": {
+  "oracleId": "hill-giant",
+  "name": "Hill Giant",
+  "manaCost": {
+   "C": 3,
+   "R": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Giant"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Kev Walker",
+  "art": "art/hill-giant-art.jpg",
+  "image": "art/hill-giant-card.jpg"
+ },
+ "lava-axe": {
+  "oracleId": "lava-axe",
+  "name": "Lava Axe",
+  "manaCost": {
+   "C": 4,
+   "R": 1
+  },
+  "cmc": 5,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Lava Axe deals 5 damage to target player or planeswalker.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "damage",
+    "target": "player",
+    "amount": 5
+   }
+  ],
+  "targets": [],
+  "artist": "Brian Snõddy",
+  "art": "art/lava-axe-art.jpg",
+  "image": "art/lava-axe-card.jpg"
+ },
+ "prodigal-pyromancer": {
+  "oracleId": "prodigal-pyromancer",
+  "name": "Prodigal Pyromancer",
+  "manaCost": {
+   "C": 2,
+   "R": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Human",
+   "Wizard"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "{T}: This creature deals 1 damage to any target.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "tapSelf": true
+    },
+    "effects": [
+     {
+      "kind": "damage",
+      "target": "any",
+      "amount": 1
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jeremy Jarvis",
+  "art": "art/prodigal-pyromancer-art.jpg",
+  "image": "art/prodigal-pyromancer-card.jpg"
+ },
+ "viashino-pyromancer": {
+  "oracleId": "viashino-pyromancer",
+  "name": "Viashino Pyromancer",
+  "manaCost": {
+   "C": 1,
+   "R": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Lizard",
+   "Wizard"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "When this creature enters, it deals 2 damage to target player or planeswalker.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "damage",
+      "target": "player",
+      "amount": 2
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jesper Ejsing",
+  "art": "art/viashino-pyromancer-art.jpg",
+  "image": "art/viashino-pyromancer-card.jpg"
+ },
+ "dragon-hatchling": {
+  "oracleId": "dragon-hatchling",
+  "name": "Dragon Hatchling",
+  "manaCost": {
+   "C": 1,
+   "R": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Dragon"
+  ],
+  "power": 0,
+  "toughness": 1,
+  "oracleText": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "R": 1
+     }
+    },
+    "effects": [
+     {
+      "kind": "pump",
+      "target": "self",
+      "power": 1,
+      "toughness": 0,
+      "duration": "endOfTurn"
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "David Palumbo",
+  "art": "art/dragon-hatchling-art.jpg",
+  "image": "art/dragon-hatchling-card.jpg"
+ },
+ "onakke-ogre": {
+  "oracleId": "onakke-ogre",
+  "name": "Onakke Ogre",
+  "manaCost": {
+   "C": 2,
+   "R": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Ogre",
+   "Warrior"
+  ],
+  "power": 4,
+  "toughness": 2,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Mathias Kollros",
+  "art": "art/onakke-ogre-art.jpg",
+  "image": "art/onakke-ogre-card.jpg"
+ },
+ "canyon-minotaur": {
+  "oracleId": "canyon-minotaur",
+  "name": "Canyon Minotaur",
+  "manaCost": {
+   "C": 3,
+   "R": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Minotaur",
+   "Warrior"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Steve Prescott",
+  "art": "art/canyon-minotaur-art.jpg",
+  "image": "art/canyon-minotaur-card.jpg"
+ },
+ "goblin-sky-raider": {
+  "oracleId": "goblin-sky-raider",
+  "name": "Goblin Sky Raider",
+  "manaCost": {
+   "C": 2,
+   "R": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Goblin",
+   "Warrior"
+  ],
+  "power": 1,
+  "toughness": 2,
+  "oracleText": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Daren Bader",
+  "art": "art/goblin-sky-raider-art.jpg",
+  "image": "art/goblin-sky-raider-card.jpg"
+ },
+ "torch-fiend": {
+  "oracleId": "torch-fiend",
+  "name": "Torch Fiend",
+  "manaCost": {
+   "C": 1,
+   "R": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Devil"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "{R}, Sacrifice this creature: Destroy target artifact.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "R": 1
+     },
+     "sacrificeSelf": true
+    },
+    "effects": [
+     {
+      "kind": "destroy",
+      "target": {
+       "zone": "battlefield",
+       "cardTypes": [
+        "artifact"
+       ],
+       "controller": "any"
+      }
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": [
+     {
+      "zone": "battlefield",
+      "cardTypes": [
+       "artifact"
+      ],
+      "controller": "any"
+     }
+    ]
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Winona Nelson",
+  "art": "art/torch-fiend-art.jpg",
+  "image": "art/torch-fiend-card.jpg"
+ },
+ "krenko-s-command": {
+  "oracleId": "krenko-s-command",
+  "name": "Krenko's Command",
+  "manaCost": {
+   "C": 1,
+   "R": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Create two 1/1 red Goblin creature tokens.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "createToken",
+    "token": {
+     "name": "Goblin",
+     "power": 1,
+     "toughness": 1,
+     "colors": [
+      "R"
+     ],
+     "subtypes": [
+      "Goblin"
+     ],
+     "keywords": [],
+     "art": "art/token-goblin-art.jpg"
+    },
+    "count": 2
+   }
+  ],
+  "targets": [],
+  "artist": "Lucas Graciano",
+  "art": "art/krenko-s-command-art.jpg",
+  "image": "art/krenko-s-command-card.jpg"
+ },
+ "bogardan-firefiend": {
+  "oracleId": "bogardan-firefiend",
+  "name": "Bogardan Firefiend",
+  "manaCost": {
+   "C": 2,
+   "R": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elemental",
+   "Spirit"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "When this creature dies, it deals 2 damage to target creature.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onDies",
+    "effects": [
+     {
+      "kind": "damage",
+      "target": {
+       "zone": "battlefield",
+       "cardTypes": [
+        "creature"
+       ],
+       "controller": "any"
+      },
+      "amount": 2
+     }
+    ],
+    "targets": [
+     {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "controller": "any"
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Terese Nielsen",
+  "art": "art/bogardan-firefiend-art.jpg",
+  "image": "art/bogardan-firefiend-card.jpg"
+ },
+ "fire-elemental": {
+  "oracleId": "fire-elemental",
+  "name": "Fire Elemental",
+  "manaCost": {
+   "C": 3,
+   "R": 2
+  },
+  "cmc": 5,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Elemental"
+  ],
+  "power": 5,
+  "toughness": 4,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Joe Slucher",
+  "art": "art/fire-elemental-art.jpg",
+  "image": "art/fire-elemental-card.jpg"
+ },
+ "vampire-nighthawk": {
+  "oracleId": "vampire-nighthawk",
+  "name": "Vampire Nighthawk",
+  "manaCost": {
+   "C": 1,
+   "B": 2
+  },
+  "cmc": 3,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Vampire",
+   "Shaman"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "oracleText": "Flying\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "keywords": [
+   "deathtouch",
+   "flying",
+   "lifelink"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Jason Chan",
+  "art": "art/vampire-nighthawk-art.jpg",
+  "image": "art/vampire-nighthawk-card.jpg"
+ },
+ "child-of-night": {
+  "oracleId": "child-of-night",
+  "name": "Child of Night",
+  "manaCost": {
+   "C": 1,
+   "B": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Vampire"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "Lifelink",
+  "keywords": [
+   "lifelink"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Igor Kieryluk",
+  "art": "art/child-of-night-art.jpg",
+  "image": "art/child-of-night-card.jpg"
+ },
+ "doom-blade": {
+  "oracleId": "doom-blade",
+  "name": "Doom Blade",
+  "manaCost": {
+   "C": 1,
+   "B": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Destroy target nonblack creature.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "destroy",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any",
+     "notColors": [
+      "B"
+     ]
+    }
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any",
+    "notColors": [
+     "B"
+    ]
+   }
+  ],
+  "artist": "Bachzim",
+  "art": "art/doom-blade-art.jpg",
+  "image": "art/doom-blade-card.jpg"
+ },
+ "terror": {
+  "oracleId": "terror",
+  "name": "Terror",
+  "manaCost": {
+   "C": 1,
+   "B": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Destroy target nonartifact, nonblack creature. It can't be regenerated.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "destroy",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any",
+     "notColors": [
+      "B"
+     ],
+     "notCardTypes": [
+      "artifact"
+     ]
+    }
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any",
+    "notColors": [
+     "B"
+    ],
+    "notCardTypes": [
+     "artifact"
+    ]
+   }
+  ],
+  "artist": "Adam Rex",
+  "art": "art/terror-art.jpg",
+  "image": "art/terror-card.jpg"
+ },
+ "dark-banishing": {
+  "oracleId": "dark-banishing",
+  "name": "Dark Banishing",
+  "manaCost": {
+   "C": 2,
+   "B": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Destroy target nonblack creature. It can't be regenerated.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "destroy",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any",
+     "notColors": [
+      "B"
+     ]
+    }
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any",
+    "notColors": [
+     "B"
+    ]
+   }
+  ],
+  "artist": "John Matson",
+  "art": "art/dark-banishing-art.jpg",
+  "image": "art/dark-banishing-card.jpg"
+ },
+ "murder": {
+  "oracleId": "murder",
+  "name": "Murder",
+  "manaCost": {
+   "C": 1,
+   "B": 2
+  },
+  "cmc": 3,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Destroy target creature.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "destroy",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    }
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Domenico Cava",
+  "art": "art/murder-art.jpg",
+  "image": "art/murder-card.jpg"
+ },
+ "mind-rot": {
+  "oracleId": "mind-rot",
+  "name": "Mind Rot",
+  "manaCost": {
+   "C": 2,
+   "B": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Target player discards two cards.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "discard",
+    "player": "opponent",
+    "count": 2
+   }
+  ],
+  "targets": [],
+  "artist": "Seb McKinnon",
+  "art": "art/mind-rot-art.jpg",
+  "image": "art/mind-rot-card.jpg"
+ },
+ "zombie-goliath": {
+  "oracleId": "zombie-goliath",
+  "name": "Zombie Goliath",
+  "manaCost": {
+   "C": 4,
+   "B": 1
+  },
+  "cmc": 5,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Zombie",
+   "Giant"
+  ],
+  "power": 4,
+  "toughness": 3,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "E. M. Gist",
+  "art": "art/zombie-goliath-art.jpg",
+  "image": "art/zombie-goliath-card.jpg"
+ },
+ "walking-corpse": {
+  "oracleId": "walking-corpse",
+  "name": "Walking Corpse",
+  "manaCost": {
+   "C": 1,
+   "B": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Zombie"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Igor Kieryluk",
+  "art": "art/walking-corpse-art.jpg",
+  "image": "art/walking-corpse-card.jpg"
+ },
+ "barony-vampire": {
+  "oracleId": "barony-vampire",
+  "name": "Barony Vampire",
+  "manaCost": {
+   "C": 2,
+   "B": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Vampire"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Daarken",
+  "art": "art/barony-vampire-art.jpg",
+  "image": "art/barony-vampire-card.jpg"
+ },
+ "vampire-interloper": {
+  "oracleId": "vampire-interloper",
+  "name": "Vampire Interloper",
+  "manaCost": {
+   "C": 1,
+   "B": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Vampire",
+   "Scout"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "Flying\nThis creature can't block.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [
+   {
+    "kind": "cantBlock"
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "James Ryman",
+  "art": "art/vampire-interloper-art.jpg",
+  "image": "art/vampire-interloper-card.jpg"
+ },
+ "bloodrite-invoker": {
+  "oracleId": "bloodrite-invoker",
+  "name": "Bloodrite Invoker",
+  "manaCost": {
+   "C": 2,
+   "B": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Vampire",
+   "Shaman"
+  ],
+  "power": 3,
+  "toughness": 1,
+  "oracleText": "{8}: Target player loses 3 life and you gain 3 life.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "C": 8
+     }
+    },
+    "effects": [
+     {
+      "kind": "loseLife",
+      "player": "opponent",
+      "amount": 3
+     },
+     {
+      "kind": "gainLife",
+      "player": "you",
+      "amount": 3
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Svetlin Velinov",
+  "art": "art/bloodrite-invoker-art.jpg",
+  "image": "art/bloodrite-invoker-card.jpg"
+ },
+ "nightwing-shade": {
+  "oracleId": "nightwing-shade",
+  "name": "Nightwing Shade",
+  "manaCost": {
+   "C": 4,
+   "B": 1
+  },
+  "cmc": 5,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Shade"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flying\n{1}{B}: This creature gets +1/+1 until end of turn.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [
+   {
+    "cost": {
+     "mana": {
+      "C": 1,
+      "B": 1
+     }
+    },
+    "effects": [
+     {
+      "kind": "pump",
+      "target": "self",
+      "power": 1,
+      "toughness": 1,
+      "duration": "endOfTurn"
+     }
+    ],
+    "sorcerySpeed": false,
+    "targets": []
+   }
+  ],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Lucas Graciano",
+  "art": "art/nightwing-shade-art.jpg",
+  "image": "art/nightwing-shade-card.jpg"
+ },
+ "typhoid-rats": {
+  "oracleId": "typhoid-rats",
+  "name": "Typhoid Rats",
+  "manaCost": {
+   "B": 1
+  },
+  "cmc": 1,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Rat"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "oracleText": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "keywords": [
+   "deathtouch"
+  ],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Dave Kendall",
+  "art": "art/typhoid-rats-art.jpg",
+  "image": "art/typhoid-rats-card.jpg"
+ },
+ "untamed-hunger": {
+  "oracleId": "untamed-hunger",
+  "name": "Untamed Hunger",
+  "manaCost": {
+   "C": 2,
+   "B": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "enchantment"
+  ],
+  "subtypes": [
+   "Aura"
+  ],
+  "oracleText": "Enchant creature\nEnchanted creature gets +2/+1 and has menace. (It can't be blocked except by two or more creatures.)",
+  "keywords": [],
+  "statics": [
+   {
+    "kind": "aura",
+    "attachTo": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 2,
+    "toughness": 1,
+    "keywords": [
+     "menace"
+    ]
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Willian Murai",
+  "art": "art/untamed-hunger-art.jpg",
+  "image": "art/untamed-hunger-card.jpg"
+ },
+ "bloodhunter-bat": {
+  "oracleId": "bloodhunter-bat",
+  "name": "Bloodhunter Bat",
+  "manaCost": {
+   "C": 3,
+   "B": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Bat"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "oracleText": "Flying\nWhen this creature enters, target player loses 2 life and you gain 2 life.",
+  "keywords": [
+   "flying"
+  ],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "loseLife",
+      "player": "opponent",
+      "amount": 2
+     },
+     {
+      "kind": "gainLife",
+      "player": "you",
+      "amount": 2
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Tomasz Jedruszek",
+  "art": "art/bloodhunter-bat-art.jpg",
+  "image": "art/bloodhunter-bat-card.jpg"
+ },
+ "cackling-fiend": {
+  "oracleId": "cackling-fiend",
+  "name": "Cackling Fiend",
+  "manaCost": {
+   "C": 2,
+   "B": 2
+  },
+  "cmc": 4,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Zombie"
+  ],
+  "power": 2,
+  "toughness": 1,
+  "oracleText": "When this creature enters, each opponent discards a card.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [
+   {
+    "on": "onEnterBattlefield",
+    "effects": [
+     {
+      "kind": "discard",
+      "player": "opponent",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Brian Despain",
+  "art": "art/cackling-fiend-art.jpg",
+  "image": "art/cackling-fiend-card.jpg"
+ },
+ "rotting-fensnake": {
+  "oracleId": "rotting-fensnake",
+  "name": "Rotting Fensnake",
+  "manaCost": {
+   "C": 3,
+   "B": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "B"
+  ],
+  "cardTypes": [
+   "creature"
+  ],
+  "subtypes": [
+   "Zombie",
+   "Snake"
+  ],
+  "power": 5,
+  "toughness": 1,
+  "oracleText": "",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Tomasz Jedruszek",
+  "art": "art/rotting-fensnake-art.jpg",
+  "image": "art/rotting-fensnake-card.jpg"
+ },
+ "plains": {
+  "oracleId": "plains",
+  "name": "Plains",
+  "manaCost": {},
+  "cmc": 0,
+  "colors": [],
+  "cardTypes": [
+   "land"
+  ],
+  "subtypes": [
+   "Plains"
+  ],
+  "oracleText": "({T}: Add {W}.)",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Bastien Grivet",
+  "art": "art/plains-art.jpg",
+  "image": "art/plains-card.jpg",
+  "producesMana": [
+   "W"
+  ]
+ },
+ "island": {
+  "oracleId": "island",
+  "name": "Island",
+  "manaCost": {},
+  "cmc": 0,
+  "colors": [],
+  "cardTypes": [
+   "land"
+  ],
+  "subtypes": [
+   "Island"
+  ],
+  "oracleText": "({T}: Add {U}.)",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Bastien Grivet",
+  "art": "art/island-art.jpg",
+  "image": "art/island-card.jpg",
+  "producesMana": [
+   "U"
+  ]
+ },
+ "swamp": {
+  "oracleId": "swamp",
+  "name": "Swamp",
+  "manaCost": {},
+  "cmc": 0,
+  "colors": [],
+  "cardTypes": [
+   "land"
+  ],
+  "subtypes": [
+   "Swamp"
+  ],
+  "oracleText": "({T}: Add {B}.)",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Bastien Grivet",
+  "art": "art/swamp-art.jpg",
+  "image": "art/swamp-card.jpg",
+  "producesMana": [
+   "B"
+  ]
+ },
+ "mountain": {
+  "oracleId": "mountain",
+  "name": "Mountain",
+  "manaCost": {},
+  "cmc": 0,
+  "colors": [],
+  "cardTypes": [
+   "land"
+  ],
+  "subtypes": [
+   "Mountain"
+  ],
+  "oracleText": "({T}: Add {R}.)",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Bastien Grivet",
+  "art": "art/mountain-art.jpg",
+  "image": "art/mountain-card.jpg",
+  "producesMana": [
+   "R"
+  ]
+ },
+ "forest": {
+  "oracleId": "forest",
+  "name": "Forest",
+  "manaCost": {},
+  "cmc": 0,
+  "colors": [],
+  "cardTypes": [
+   "land"
+  ],
+  "subtypes": [
+   "Forest"
+  ],
+  "oracleText": "({T}: Add {G}.)",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [],
+  "artist": "Bastien Grivet",
+  "art": "art/forest-art.jpg",
+  "image": "art/forest-card.jpg",
+  "producesMana": [
+   "G"
+  ]
+ },
+ "serra-s-embrace": {
+  "oracleId": "serra-s-embrace",
+  "name": "Serra's Embrace",
+  "manaCost": {
+   "C": 2,
+   "W": 2
+  },
+  "cmc": 4,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "enchantment"
+  ],
+  "subtypes": [
+   "Aura"
+  ],
+  "oracleText": "Enchant creature\nEnchanted creature gets +2/+2 and has flying and vigilance. (Attacking doesn't cause it to tap.)",
+  "keywords": [],
+  "statics": [
+   {
+    "kind": "aura",
+    "attachTo": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 2,
+    "toughness": 2,
+    "keywords": [
+     "flying",
+     "vigilance"
+    ]
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Zoltan Boros & Gabor Szikszai",
+  "art": "art/serra-s-embrace-art.jpg",
+  "image": "art/serra-s-embrace-card.jpg"
+ },
+ "sacred-nectar": {
+  "oracleId": "sacred-nectar",
+  "name": "Sacred Nectar",
+  "manaCost": {
+   "C": 1,
+   "W": 1
+  },
+  "cmc": 2,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "You gain 4 life.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "gainLife",
+    "player": "you",
+    "amount": 4
+   }
+  ],
+  "targets": [],
+  "artist": "Janine Johnston",
+  "art": "art/sacred-nectar-art.jpg",
+  "image": "art/sacred-nectar-card.jpg"
+ },
+ "angelic-blessing": {
+  "oracleId": "angelic-blessing",
+  "name": "Angelic Blessing",
+  "manaCost": {
+   "C": 2,
+   "W": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "sorcery"
+  ],
+  "subtypes": [],
+  "oracleText": "Target creature gets +3/+3 and gains flying until end of turn. (It can't be blocked except by creatures with flying or reach.)",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "pump",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 3,
+    "toughness": 3,
+    "duration": "endOfTurn"
+   },
+   {
+    "kind": "grantKeyword",
+    "target": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "keyword": "flying",
+    "duration": "endOfTurn"
+   }
+  ],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "Mark Zug",
+  "art": "art/angelic-blessing-art.jpg",
+  "image": "art/angelic-blessing-card.jpg"
+ },
+ "marked-by-honor": {
+  "oracleId": "marked-by-honor",
+  "name": "Marked by Honor",
+  "manaCost": {
+   "C": 3,
+   "W": 1
+  },
+  "cmc": 4,
+  "colors": [
+   "W"
+  ],
+  "cardTypes": [
+   "enchantment"
+  ],
+  "subtypes": [
+   "Aura"
+  ],
+  "oracleText": "Enchant creature\nEnchanted creature gets +2/+2 and has vigilance. (Attacking doesn't cause it to tap.)",
+  "keywords": [],
+  "statics": [
+   {
+    "kind": "aura",
+    "attachTo": {
+     "zone": "battlefield",
+     "cardTypes": [
+      "creature"
+     ],
+     "controller": "any"
+    },
+    "power": 2,
+    "toughness": 2,
+    "keywords": [
+     "vigilance"
+    ]
+   }
+  ],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [],
+  "targets": [
+   {
+    "zone": "battlefield",
+    "cardTypes": [
+     "creature"
+    ],
+    "controller": "any"
+   }
+  ],
+  "artist": "David Palumbo",
+  "art": "art/marked-by-honor-art.jpg",
+  "image": "art/marked-by-honor-card.jpg"
+ },
+ "trumpet-blast": {
+  "oracleId": "trumpet-blast",
+  "name": "Trumpet Blast",
+  "manaCost": {
+   "C": 2,
+   "R": 1
+  },
+  "cmc": 3,
+  "colors": [
+   "R"
+  ],
+  "cardTypes": [
+   "instant"
+  ],
+  "subtypes": [],
+  "oracleText": "Attacking creatures get +2/+0 until end of turn.",
+  "keywords": [],
+  "statics": [],
+  "triggers": [],
+  "activated": [],
+  "spellEffects": [
+   {
+    "kind": "pump",
+    "target": {
+     "every": {
+      "zone": "battlefield",
+      "cardTypes": [
+       "creature"
+      ],
+      "attacking": true
+     }
+    },
+    "power": 2,
+    "toughness": 0,
+    "duration": "endOfTurn"
+   }
+  ],
+  "targets": [],
+  "artist": "Steve Prescott",
+  "art": "art/trumpet-blast-art.jpg",
+  "image": "art/trumpet-blast-card.jpg"
+ }
+}

@@ -21,6 +21,7 @@
  * it had on the way out.
  */
 
+import { isCreature } from './state';
 import type {
   CardDef,
   CardId,
@@ -96,5 +97,51 @@ export function fireTriggers(
       isTriggered: true,
     });
     owned.nextId += 1;
+  }
+}
+
+/**
+ * Announce that a permanent has arrived on the battlefield.
+ *
+ * Both the resolution path in `rules.ts` and token creation in `effects.ts` need this,
+ * and `effects.ts` cannot import `rules.ts` without a cycle — so it lives here, with
+ * the rest of the trigger machinery.
+ *
+ * Two details that are easy to get wrong and both change games:
+ *
+ *  - The sweep covers **both** battlefields. "Whenever another creature enters" means
+ *    any creature, either side of the table; walking only the controller's own side
+ *    drops about half of Soul Warden's triggers.
+ *  - A **token** entering is a creature entering. Creating one through `newInstance`
+ *    without coming through here is how a Soldier token silently fails to feed every
+ *    lifegain engine on the board.
+ */
+export function notifyEnteredBattlefield(
+  owned: GameState,
+  card: CardId,
+  events: GameEvent[],
+): void {
+  const instance = owned.cards[card];
+  if (!instance) return;
+
+  instance.summonedThisTurn = true;
+  fireTriggers(owned, events, triggerSourceOf(owned, card), 'onEnterBattlefield', card, instance.controller);
+
+  if (!isCreature(owned, card)) return;
+
+  for (const player of [0, 1] as const) {
+    for (const id of [...owned.players[player].battlefield]) {
+      if (id === card) continue;
+      const watcher = owned.cards[id];
+      if (!watcher) continue;
+      fireTriggers(
+        owned,
+        events,
+        triggerSourceOf(owned, id),
+        'onOtherEnterBattlefield',
+        id,
+        watcher.controller,
+      );
+    }
   }
 }

@@ -2,10 +2,10 @@
  * Black card behavior.
  *
  * Only cards whose oracle text this engine can honor *exactly* appear here. Where the
- * real card needs a vocabulary member that does not exist — a negated color filter
- * ("nonblack"), a sacrifice-another-creature cost, damage-source tracking, "can't
- * block", or an unless-clause — the card is not implemented and is reported for
- * removal from the pool instead of being approximated.
+ * real card needs a vocabulary member that does not exist — a sacrifice-another-creature
+ * cost, an exile-self cost, damage-source tracking, or an unless-clause — the card is
+ * not implemented and is reported for removal from the pool instead of being
+ * approximated.
  *
  * One convention worth stating once: "target player" on a purely one-sided effect
  * (life loss, discard) is authored as `'opponent'`. In a two-player game the other
@@ -16,6 +16,27 @@
 
 import type { BehaviorTable } from './shared';
 import { ANY_CREATURE, pumpAbility } from './shared';
+import type { TargetFilter } from '../../engine/types';
+
+/**
+ * "Target nonblack creature", black's own classic blind spot.
+ *
+ * Written with `notColors` rather than a whitelist of the other four colors, which
+ * would be wrong twice over: a black-red creature is still black and must be spared,
+ * and a colorless creature is not black and must be a legal target.
+ */
+const NONBLACK_CREATURE: TargetFilter = {
+  zone: 'battlefield',
+  cardTypes: ['creature'],
+  controller: 'any',
+  notColors: ['B'],
+};
+
+/** "Target nonartifact, nonblack creature" — Terror's slightly narrower reach. */
+const NONBLACK_NONARTIFACT_CREATURE: TargetFilter = {
+  ...NONBLACK_CREATURE,
+  notCardTypes: ['artifact'],
+};
 
 export const BLACK: BehaviorTable = {
 
@@ -25,6 +46,32 @@ export const BLACK: BehaviorTable = {
   'murder': {
     spellEffects: [{ kind: 'destroy', target: ANY_CREATURE }],
     targets: [ANY_CREATURE],
+  },
+
+  // "Destroy target nonblack creature."
+  'doom-blade': {
+    spellEffects: [{ kind: 'destroy', target: NONBLACK_CREATURE }],
+    targets: [NONBLACK_CREATURE],
+  },
+
+  /**
+   * "Destroy target nonblack creature. It can't be regenerated."
+   *
+   * The second sentence is inert: regeneration is out of scope for this game, so
+   * nothing in the pool could ever regenerate to be stopped. `stripInertText` in
+   * tools/validate.ts removes exactly this rider for exactly that reason, which makes
+   * Dark Banishing and Doom Blade the same card here — as they are in play.
+   */
+  'dark-banishing': {
+    spellEffects: [{ kind: 'destroy', target: NONBLACK_CREATURE }],
+    targets: [NONBLACK_CREATURE],
+  },
+
+  // "Destroy target nonartifact, nonblack creature. It can't be regenerated."
+  // The regeneration rider is inert here for the same reason it is on Dark Banishing.
+  'terror': {
+    spellEffects: [{ kind: 'destroy', target: NONBLACK_NONARTIFACT_CREATURE }],
+    targets: [NONBLACK_NONARTIFACT_CREATURE],
   },
 
   // --- Disruption ------------------------------------------------------------
@@ -70,6 +117,14 @@ export const BLACK: BehaviorTable = {
       on: 'onEnterBattlefield',
       effects: [{ kind: 'discard', player: 'opponent', count: 1 }],
     }],
+  },
+
+  // --- Attackers that stay home ---------------------------------------------------
+
+  // "Flying. This creature can't block."
+  // Flying comes from Scryfall's keyword list; only the restriction is authored.
+  'vampire-interloper': {
+    statics: [{ kind: 'cantBlock' }],
   },
 
   // --- Pump --------------------------------------------------------------------
