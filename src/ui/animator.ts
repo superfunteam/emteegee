@@ -17,13 +17,13 @@ import { prefersReducedMotion } from './dom';
 /** Per spec section 9.6: no single beat exceeds 600ms, and a full combat sequence
  *  finishes within 2.5s. These are the numbers that enforce it. */
 const DURATION: Record<GameEvent['type'], number> = {
-  DRAW: 260,
+  DRAW: 220,
   PLAY: 320,
   CAST: 300,
-  RESOLVE: 220,
+  RESOLVE: 180,
   COUNTERED: 300,
-  TAP: 140,
-  UNTAP: 140,
+  TAP: 110,
+  UNTAP: 90,
   ATTACK: 380,
   BLOCK: 220,
   DAMAGE: 260,
@@ -33,7 +33,7 @@ const DURATION: Record<GameEvent['type'], number> = {
   TOKEN_CREATE: 300,
   ZONE_CHANGE: 160,
   SCRY: 400,
-  PHASE: 90,
+  PHASE: 60,
   TRIGGER: 240,
   WIN: 600,
 };

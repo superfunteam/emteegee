@@ -205,12 +205,15 @@ describe('the stack', () => {
   it('resolves last in, first out', () => {
     const state = gameWith({ stack: [pending('first'), pending('second')] });
 
-    const top = reduce(state, PASS);
-    expect(top.events.filter((e) => e.type === 'RESOLVE').map((e) => e.card)).toEqual(['second']);
-
-    const rest = reduce(top.state, PASS);
-    expect(rest.events.filter((e) => e.type === 'RESOLVE').map((e) => e.card)).toEqual(['first']);
-    expect(rest.state.stack).toEqual([]);
+    // Nobody can respond to either object, so one pass settles the whole
+    // stack (spec §9.4) — and the RESOLVE events keep the last-in-first-out
+    // order the stack promises.
+    const result = reduce(state, PASS);
+    expect(result.events.filter((e) => e.type === 'RESOLVE').map((e) => e.card)).toEqual([
+      'second',
+      'first',
+    ]);
+    expect(result.state.stack).toEqual([]);
   });
 
   it('pops the last object and puts a resolved spell in its owner graveyard', () => {
@@ -232,14 +235,17 @@ describe('the stack', () => {
     const made = newInstance(state, 'grizzly-bears', 0, 'hand');
     state = made.state;
 
+    // Neither player holds an instant, so the cast is not a response window:
+    // the spell resolves inside the same reduce (spec §9.4), CAST before
+    // RESOLVE, with no stop at a stack nobody could touch.
     const cast = reduce(state, { kind: 'castSpell', card: made.id, targets: null });
-    expect(cast.state.cards[made.id]!.zone).toBe('stack');
-    expect(cast.state.stack).toHaveLength(1);
 
-    const resolved = reduce(cast.state, PASS);
-    expect(resolved.state.cards[made.id]!.zone).toBe('battlefield');
-    expect(resolved.state.cards[made.id]!.summonedThisTurn).toBe(true);
-    expect(resolved.state.stack).toEqual([]);
+    const types = cast.events.map((e) => e.type);
+    expect(types.indexOf('CAST')).toBeGreaterThanOrEqual(0);
+    expect(types.indexOf('CAST')).toBeLessThan(types.indexOf('RESOLVE'));
+    expect(cast.state.cards[made.id]!.zone).toBe('battlefield');
+    expect(cast.state.cards[made.id]!.summonedThisTurn).toBe(true);
+    expect(cast.state.stack).toEqual([]);
   });
 });
 
@@ -257,9 +263,13 @@ describe('state-based actions', () => {
     const result = reduce(state, PASS);
 
     expect(result.state.cards['you0']!.zone).toBe('graveyard');
-    expect(result.events.some((e) => e.type === 'DIE' && e.card === 'you0')).toBe(true);
-    // The phase never moved: the sweep came from the resolution, not a boundary.
-    expect(result.state.phase).toBe('declareAttackers');
+    const types = result.events.map((e) => e.type);
+    const died = types.indexOf('DIE');
+    expect(died).toBeGreaterThanOrEqual(0);
+    // The death precedes every phase change: the sweep came from the
+    // resolution itself, not from a boundary the settle later crossed.
+    const firstPhase = types.indexOf('PHASE');
+    expect(firstPhase === -1 || died < firstPhase).toBe(true);
   });
 
   it('destroys a creature with lethal damage marked', () => {
@@ -373,15 +383,22 @@ describe('phases', () => {
   });
 
   it('skips the turn-one draw for player 0, who is on the play', () => {
-    const state = gameWith({ library: [['a', 'b'], ['c']], phase: 'upkeep', active: 0 });
+    // The forest in hand is the real choice the settle stops at, so the pass
+    // ends at player 0's own main phase with the library untouched.
+    let state = gameWith({ library: [['a', 'b'], ['c']], phase: 'upkeep', active: 0 });
+    state = newInstance(state, 'forest', 0, 'hand').state;
     const result = reduce(state, PASS);
 
     expect(result.events.filter((e) => e.type === 'DRAW' && e.player === 0)).toEqual([]);
     expect(result.state.players[0].library).toEqual(['a', 'b']);
+    expect(result.state.phase).toBe('main1');
   });
 
   it('skips stops where advancing is the only thing to do, and reports every phase', () => {
-    const state = gameWith({ hand: [[], []], library: [['a'], ['b']], phase: 'main1' });
+    // Player 1's forest is the next real decision, so the pass runs the rest
+    // of player 0's empty turn and stops at player 1's main phase.
+    let state = gameWith({ hand: [[], []], library: [['a'], ['b']], phase: 'main1' });
+    state = newInstance(state, 'forest', 1, 'hand').state;
     const result = reduce(state, PASS);
 
     const phases = result.events.filter((e) => e.type === 'PHASE').map((e) => e.phase);
@@ -394,6 +411,7 @@ describe('phases', () => {
     expect(phases).toContain('draw');
     expect(phases.length).toBeLessThanOrEqual(PHASE_ORDER.length);
     expect(result.state.active).toBe(1);
+    expect(result.state.phase).toBe('main1');
   });
 
   it('stops at a phase where the player with priority has a real decision', () => {
@@ -467,25 +485,27 @@ describe('reduce', () => {
 // ---------------------------------------------------------------------------
 
 describe('resolution', () => {
-  it('fires enter-the-battlefield triggers and holds the phase until they resolve', () => {
-    let state = giveLands(register(gameWith({}), WELCOMER_DEF), 0, 'W', 1);
+  it('fires enter-the-battlefield triggers and resolves them before the phase moves on', () => {
+    // Player 1's forest and library card keep the game alive past the cast, so
+    // the settle stops at their turn instead of playing to a deck-out.
+    let state = giveLands(register(gameWith({ library: [[], ['b1']] }), WELCOMER_DEF), 0, 'W', 1);
+    state = newInstance(state, 'forest', 1, 'hand').state;
     const made = newInstance(state, WELCOMER_DEF.oracleId, 0, 'hand');
     state = made.state;
 
-    const entered = reduce(
-      reduce(state, { kind: 'castSpell', card: made.id, targets: null }).state,
-      PASS,
-    );
+    // Nobody can respond to the spell or to its trigger, so the whole chain —
+    // cast, resolve, trigger, resolve — settles inside this one reduce.
+    const cast = reduce(state, { kind: 'castSpell', card: made.id, targets: null });
 
-    expect(entered.state.cards[made.id]!.zone).toBe('battlefield');
-    expect(entered.events.some((e) => e.type === 'TRIGGER' && e.on === 'onEnterBattlefield')).toBe(true);
-    // The trigger is waiting, so the phase has not moved on without it.
-    expect(entered.state.stack).toHaveLength(1);
-    expect(entered.state.phase).toBe('main1');
-
-    const resolved = reduce(entered.state, PASS);
-    expect(resolved.state.players[0].life).toBe(23);
-    expect(resolved.state.stack).toEqual([]);
+    expect(cast.state.cards[made.id]!.zone).toBe('battlefield');
+    expect(cast.events.some((e) => e.type === 'TRIGGER' && e.on === 'onEnterBattlefield')).toBe(true);
+    expect(cast.state.players[0].life).toBe(23);
+    expect(cast.state.stack).toEqual([]);
+    // The trigger resolved before any phase changed: both RESOLVEs come
+    // before the first PHASE event.
+    const types = cast.events.map((e) => e.type);
+    expect(types.filter((t) => t === 'RESOLVE')).toHaveLength(2);
+    expect(types.lastIndexOf('RESOLVE')).toBeLessThan(types.indexOf('PHASE'));
   });
 
   it('attaches an aura to the target chosen when it was cast', () => {
@@ -510,62 +530,70 @@ describe('resolution', () => {
     const made = newInstance(state, 'grizzly-bears', 0, 'hand');
     state = made.state;
 
-    const entered = reduce(
-      reduce(state, { kind: 'castSpell', card: made.id, targets: null }).state,
-      PASS,
-    );
+    // The cast, the arrival, and the warden's trigger all settle in one
+    // reduce, because nobody can respond to any of it (spec §9.4). The settle
+    // stops at declare attackers: the warden could swing, a real decision.
+    const cast = reduce(state, { kind: 'castSpell', card: made.id, targets: null });
 
     // The warden notices; the creature that arrived does not notice itself.
-    const noticed = entered.events.filter(
+    const noticed = cast.events.filter(
       (e) => e.type === 'TRIGGER' && e.on === 'onOtherEnterBattlefield',
     );
     expect(noticed).toHaveLength(1);
     expect(noticed[0]).toMatchObject({ source: warden.id });
-
-    expect(reduce(entered.state, PASS).state.players[0].life).toBe(21);
+    expect(cast.state.players[0].life).toBe(21);
   });
 
-  it('stops at upkeep rather than racing past a trigger it just put on the stack', () => {
+  it('resolves an unanswerable upkeep trigger without stopping the game at it', () => {
     const state = register(gameWith({}), HAUNT_DEF);
     const haunt = putCreature(state, 0, HAUNT_DEF.oracleId);
 
-    const upkeep = reduce(atPhase(haunt.state, 'untap'), PASS);
-    expect(upkeep.state.phase).toBe('upkeep');
-    expect(upkeep.state.stack).toHaveLength(1);
-    expect(upkeep.events.some((e) => e.type === 'TRIGGER' && e.on === 'onUpkeep')).toBe(true);
+    // Nobody can respond to the trigger, so it resolves inside the same
+    // reduce that fired it (spec §9.4), and the game carries on to the next
+    // real decision: the haunt could attack.
+    const result = reduce(atPhase(haunt.state, 'untap'), PASS);
 
-    const resolved = reduce(upkeep.state, PASS);
-    expect(resolved.state.players[0].life).toBe(19);
-    expect(resolved.state.phase).toBe('upkeep');
+    expect(result.events.some((e) => e.type === 'TRIGGER' && e.on === 'onUpkeep')).toBe(true);
+    expect(result.state.players[0].life).toBe(19);
+    expect(result.state.stack).toEqual([]);
+    expect(result.state.phase).toBe('declareAttackers');
   });
 
   it('resolves an attack trigger before blockers are declared', () => {
-    const state = register(gameWith({}), RAIDER_DEF);
+    // The defender's bear is what makes declare-blockers a real decision, so
+    // the settle stops there; their forest and library card keep the game
+    // alive after combat.
+    let state = register(gameWith({ library: [[], ['d1']] }), RAIDER_DEF);
     const raider = putCreature(state, 0, RAIDER_DEF.oracleId);
+    const bear = putCreature(raider.state, 1, 'grizzly-bears');
+    state = newInstance(bear.state, 'forest', 1, 'hand').state;
 
-    const attacked = reduce(atPhase(raider.state, 'declareAttackers'), {
+    const attacked = reduce(atPhase(state, 'declareAttackers'), {
       kind: 'declareAttackers',
       attackers: [raider.id],
     });
+
+    // Nobody could respond to the trigger, so it resolved on the way: by the
+    // time the defender is asked for blocks, the raider is already 3/2 and
+    // the stack is empty.
     expect(attacked.state.phase).toBe('declareBlockers');
-    expect(attacked.state.stack).toHaveLength(1);
+    expect(attacked.state.stack).toEqual([]);
+    expect(powerOf(attacked.state, raider.id)).toBe(3);
+    expect(attacked.state.priority).toBe(1);
 
-    // One pass resolves the trigger; the phase holds, because a resolution is
-    // its own priority window. The next pass carries combat forward.
-    const pumped = reduce(attacked.state, PASS);
-    expect(powerOf(pumped.state, raider.id)).toBe(3);
-    expect(pumped.state.phase).toBe('declareBlockers');
-    expect(pumped.state.stack).toEqual([]);
-
-    const swung = reduce(pumped.state, PASS);
-    expect(swung.state.players[1].life).toBe(17);
+    // Declining the block lets the pumped attack land.
+    const declined = reduce(attacked.state, PASS);
+    expect(declined.state.players[1].life).toBe(17);
   });
 
   it('resolves a mana ability without using the stack', () => {
     const state = register(gameWith({}), DORK_DEF);
     const dork = putCreature(state, 0, DORK_DEF.oracleId);
+    // A bears in hand (castable off the dork's mana plus the forest) keeps the
+    // float a real decision, so the game stops with the mana still in the pool.
+    const bears = newInstance(giveLands(dork.state, 0, 'G', 1), 'grizzly-bears', 0, 'hand');
 
-    const result = reduce(dork.state, {
+    const result = reduce(bears.state, {
       kind: 'activate',
       card: dork.id,
       abilityIndex: 0,

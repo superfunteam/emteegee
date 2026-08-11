@@ -537,14 +537,25 @@ function playGame(plan: Plan): GameRecord {
 
       last = choose(state, legal, plan, rng);
       played[last.kind] = (played[last.kind] ?? 0) + 1;
-      state = reduce(state, last).state;
+      const result = reduce(state, last);
+      state = result.state;
       actions += 1;
 
       // A scry counts when one is set up, not when it is answered, so a scry that
       // was never offered a decision would still be seen here.
       if (state.pendingScry !== null && state.pendingScry !== scryBefore) scries += 1;
       if (wasInMulligan && !inMulligan(state)) {
-        openingHands = [state.players[0].hand.length, state.players[1].hand.length];
+        // The reduce that keeps the second hand also settles the position (spec
+        // §9.4): a keeper with no land and nothing castable is auto-passed
+        // through, which can roll the game past turn one and draw cards before
+        // this loop sees the state again. The opening hand is the hand the
+        // moment turn one began, so those draws are netted back out.
+        const drawn = (player: PlayerId): number =>
+          result.events.filter((e) => e.type === 'DRAW' && e.player === player).length;
+        openingHands = [
+          state.players[0].hand.length - drawn(0),
+          state.players[1].hand.length - drawn(1),
+        ];
       }
 
       const broken = incoherent(state);

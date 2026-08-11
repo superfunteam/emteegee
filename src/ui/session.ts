@@ -20,9 +20,10 @@ import { reduce } from '../engine/rules';
 import { chooseAction, type Tier } from '../bot/magician';
 import { speechFor } from '../bot/personality';
 import { Animator } from './animator';
+import type { DropTarget } from './gestures';
 import { sound } from '../audio/kit';
 import type { TableView, UiState } from './table';
-import type { CardAction, PromptView } from './overlay';
+import type { PromptView } from './overlay';
 import { hintFor } from './hints';
 
 export const YOU: PlayerId = 0;
@@ -32,6 +33,8 @@ export const THEM: PlayerId = 1;
 type Mode =
   | { kind: 'idle' }
   | { kind: 'targeting'; card: CardId; chosen: CardId[] }
+  /** A hand card mid-drag: every legal destination glows until it lands. */
+  | { kind: 'dragging'; card: CardId }
   | { kind: 'attacking'; picked: Set<CardId> }
   | { kind: 'blocking'; blocker: CardId | null; pairs: Map<CardId, CardId> };
 
@@ -83,13 +86,12 @@ export class Session {
   /* ------------------------------------------------------------- intents */
 
   /**
-   * A card in hand: read it first, then decide.
+   * A card in hand, tapped: play it.
    *
-   * Tapping used to cast immediately, which meant the only way to find out what a card
-   * did was to play it — backwards for the audience this game is for, and a misfire
-   * waiting to happen at seventy pixels across. The enlarged view carries the cast
-   * button, so the sequence is look, then commit, and it costs one extra tap on the
-   * most common action in the game. That trade is the right way round here.
+   * One legal way to play it means no decision to present — it happens. Several legal
+   * targets means the player aims next (or they could have dragged it onto the target
+   * in one motion, which is the primary path). Reading lives on long-press, so the
+   * most common action in the game costs exactly one tap again.
    */
   handTap(card: CardId): void {
     if (this.blocked()) return;
@@ -109,38 +111,95 @@ export class Session {
       a => (a.kind === 'castSpell' || a.kind === 'playLand') && a.card === card,
     );
 
-    const d = def(this.state, card);
-    const isLand = d.cardTypes.includes('land');
-    const actions: CardAction[] = [];
-
-    if (options.length === 1) {
-      actions.push({
-        label: isLand ? 'Play land' : 'Cast it',
-        aria: isLand ? `Play ${d.name}` : `Cast ${d.name}`,
-        run: () => void this.dispatch(options[0]!),
-      });
-    } else if (options.length > 1) {
-      // Several legal targets: reading comes first, then the player points at one.
-      actions.push({
-        label: 'Choose a target',
-        aria: `Cast ${d.name} and choose what it points at`,
-        run: () => {
-          this.mode = { kind: 'targeting', card, chosen: [] };
-          this.hint = hintFor('targeting');
-          sound.play('select');
-          this.render();
-        },
-      });
+    if (options.length === 0) {
+      sound.play('illegal', { gain: 0.5 });
+      this.flashWhyNot(card);
+      return;
     }
 
-    this.prompts.read(this.state, card, actions);
+    if (options.length === 1) {
+      void this.dispatch(options[0]!);
+      return;
+    }
 
-    // An unplayable card still opens — you should be able to read what you cannot yet
-    // cast — but the reason it is unplayable is worth saying out loud.
-    if (options.length === 0) this.flashWhyNot(card);
+    this.mode = { kind: 'targeting', card, chosen: [] };
+    this.hint = hintFor('targeting');
+    sound.play('select');
+    this.render();
+  }
+
+  /** A hand card held still: the reader, committing to nothing. */
+  handPeek(card: CardId): void {
+    this.prompts.read(this.state, card, []);
+  }
+
+  /**
+   * A drag has left the fan: light everywhere this card may go.
+   *
+   * The sets come from `legalActions`, the same as every other affordance — a glowing
+   * drop target is a promise the engine will accept the drop.
+   */
+  dragStart(card: CardId): void {
+    if (this.blocked()) return;
+    sound.unlock();
+    this.mode = { kind: 'dragging', card };
+    sound.play('select', { gain: 0.5 });
+    this.render();
+  }
+
+  /**
+   * The dragged card was let go.
+   *
+   * Dropping on a specific thing casts at that thing. Dropping "on the table" plays
+   * the card its one untargeted way — a land, a creature, a global spell. A targeted
+   * spell dropped on open felt springs back rather than guessing its target for it.
+   */
+  drop(card: CardId, target: DropTarget): void {
+    const wasDragging = this.mode.kind === 'dragging';
+    this.mode = { kind: 'idle' };
+    if (!wasDragging) { this.render(); return; }
+
+    const options = legalActions(this.state).filter(
+      a => (a.kind === 'castSpell' || a.kind === 'playLand') && a.card === card,
+    );
+
+    let chosen: Action | undefined;
+    switch (target.kind) {
+      case 'card':
+        chosen = options.find(a =>
+          a.kind === 'castSpell' && Array.isArray(a.targets) &&
+          a.targets.length === 1 && a.targets[0] === target.id);
+        break;
+      case 'player': {
+        const wanted = target.id === 0 ? 'player0' : 'player1';
+        chosen = options.find(a => a.kind === 'castSpell' && a.targets === wanted);
+        break;
+      }
+      case 'board':
+        chosen = options.find(a => a.kind === 'playLand' || (a.kind === 'castSpell' && a.targets === null));
+        break;
+      case 'nowhere':
+        break;
+    }
+
+    if (chosen) {
+      void this.dispatch(chosen);
+      return;
+    }
+
+    // Sprung back. Say why when the card was unplayable outright; a targeted spell
+    // dropped on nothing just settles home, since the glow already said where it goes.
+    if (target.kind !== 'nowhere' && options.length === 0) {
+      sound.play('illegal', { gain: 0.5 });
+      this.flashWhyNot(card);
+    } else {
+      sound.play('blip', { gain: 0.4 });
+      this.render();
+    }
   }
 
   /** A permanent on the battlefield. Meaning depends on what is happening. */
+
   tileTap(card: CardId): void {
     if (this.blocked()) return;
     sound.unlock();
@@ -450,9 +509,18 @@ export class Session {
       const line = speechFor(this.state, action, this.tier);
       if (line) { this.speech = line; this.render(); }
 
-      // A beat before acting reads as thinking, and gives the player time to see
-      // what is about to happen rather than having it appear fully formed.
-      await pause(this.speech ? 620 : 380);
+      // The thinking beat belongs to plays worth watching. A spell or an attack gets
+      // one — that pause is what makes a bomb feel considered rather than dispensed —
+      // but passes, land drops and bookkeeping do not, because eight of those beats
+      // in a row is not an opponent thinking, it is a player waiting.
+      const notable =
+        action.kind === 'castSpell' ||
+        action.kind === 'declareAttackers' ||
+        action.kind === 'declareBlockers' ||
+        action.kind === 'activate';
+      if (this.speech) await pause(620);
+      else if (notable) await pause(340);
+      else await pause(60);
 
       const result = reduce(this.state, action);
       this.state = result.state;
@@ -565,6 +633,7 @@ export class Session {
       hint: this.hint,
       speech: this.speech,
       incoming: this.incomingDamage(),
+      boardDrop: this.boardDroppable(),
     };
   }
 
@@ -583,9 +652,20 @@ export class Session {
    * as 'player0' / 'player1' rather than as a CardId, so this is a separate set from
    * the targetable permanents.
    */
-  private targetablePlayers(): Set<PlayerId> {
-    if (this.mode.kind !== 'targeting') return new Set();
+  /** True while a dragged card could be played with no target: the felt itself glows. */
+  private boardDroppable(): boolean {
+    if (this.mode.kind !== 'dragging') return false;
     const source = this.mode.card;
+    return legalActions(this.state).some(
+      a => (a.kind === 'playLand' && a.card === source) ||
+           (a.kind === 'castSpell' && a.card === source && a.targets === null),
+    );
+  }
+
+  private targetablePlayers(): Set<PlayerId> {
+    const source =
+      this.mode.kind === 'targeting' || this.mode.kind === 'dragging' ? this.mode.card : null;
+    if (source === null) return new Set();
     const players = new Set<PlayerId>();
     for (const action of legalActions(this.state)) {
       if (action.kind !== 'castSpell' || action.card !== source) continue;
@@ -622,6 +702,15 @@ export class Session {
   }
 
   private targetableCards(): Set<CardId> {
+    if (this.mode.kind === 'dragging') {
+      const source = this.mode.card;
+      const set = new Set<CardId>();
+      for (const action of legalActions(this.state)) {
+        if (action.kind !== 'castSpell' || action.card !== source) continue;
+        if (Array.isArray(action.targets) && action.targets.length === 1) set.add(action.targets[0]!);
+      }
+      return set;
+    }
     if (this.mode.kind !== 'targeting') return new Set();
     const source = this.mode.card;
     const chosen = this.mode.chosen;
@@ -643,7 +732,7 @@ export class Session {
    */
   private actLabel(): string {
     if (this.state.winner !== null) return 'Game over';
-    if (this.state.priority === THEM) return 'The Magician is thinking';
+    if (this.state.priority === THEM) return 'Thinking…';
 
     // A prompt is up: the panel in front of the player holds every move there is, and
     // the button must not offer one. `pass` is not even legal in two of these states.

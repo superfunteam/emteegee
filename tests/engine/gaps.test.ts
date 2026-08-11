@@ -256,7 +256,11 @@ describe('scry', () => {
   });
 
   it('hands the game back once the decision is made', () => {
-    const after = reduce(scrying(), { kind: 'scryDecision', toBottom: ['a'] }).state;
+    // The forest in hand is a real choice, so the settled game stops with the
+    // player back in charge rather than auto-advancing past them (spec §9.4).
+    const state = newInstance(scrying(), 'forest', 0, 'hand').state;
+    const after = reduce(state, { kind: 'scryDecision', toBottom: ['a'] }).state;
+    expect(after.pendingScry).toBeNull();
     expect(after.priority).toBe(0);
     expect(kinds(after).has('pass')).toBe(true);
   });
@@ -322,7 +326,12 @@ describe('tapping a land by hand', () => {
   });
 
   it('taps the land and floats its mana', () => {
-    const state = withForests(2);
+    // The trick in hand (castable at the bear) is what makes the float worth
+    // stopping for; with nothing to spend it on, tapping is a no-op and the
+    // settled game would advance past the wasted mana (spec §9.4).
+    let state = withForests(2);
+    const bear = putCreature(state, 0, 'grizzly-bears');
+    state = newInstance(bear.state, 'giant-growth', 0, 'hand').state;
     const land = forestsOf(state)[0]!;
 
     const result = reduce(state, { kind: 'tapLand', card: land });

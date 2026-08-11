@@ -104,6 +104,8 @@ export interface UiState {
    * teaches what blocking is for far better than a sentence about it does.
    */
   incoming: { player: PlayerId; amount: number } | null;
+  /** A dragged card could land on open felt: your board reads as a drop zone. */
+  boardDrop: boolean;
 }
 
 export function createTable(callbacks: TableCallbacks): TableView {
@@ -141,6 +143,7 @@ export function createTable(callbacks: TableCallbacks): TableView {
     patchMana(youMana, state, ui.you, true, callbacks);
     patchBoard(oppBoard, state, them, ui, tiles, callbacks);
     patchBoard(youBoard, state, ui.you, ui, tiles, callbacks);
+    youBoard.classList.toggle('board--drop', ui.boardDrop);
     // Sized after both boards exist, so each measures the height it actually got.
     sizeTiles(oppBoard);
     sizeTiles(youBoard);
@@ -315,9 +318,9 @@ function patchMana(
   }
 
   node.setAttribute('aria-label',
-    `${isYou ? 'Your' : "The Magician's"} mana: ${available} available of ${lands.length} lands`);
+    `${isYou ? 'Your' : "The Magician's"} mana: ${available} available of ${lands.length} ${lands.length === 1 ? 'land' : 'lands'}`);
 
-  const button = el('button.mana__lands', { type: 'button', text: `${lands.length} lands` });
+  const button = el('button.mana__lands', { type: 'button', text: `${lands.length} ${lands.length === 1 ? 'land' : 'lands'}` });
   if (isYou) button.addEventListener('click', () => callbacks.onManaTap(player));
   node.append(button);
 }
@@ -596,6 +599,25 @@ function patchHand(
     if (!present.has(id)) { card.remove(); cards.delete(id); }
   }
 
+  /*
+   * The fan.
+   *
+   * Cards are large and hang off the bottom of the screen: their name-and-cost band is
+   * what shows, which is exactly the part of a hand you actually consult mid-game —
+   * reading rules text goes through the long-press reader either way, so pixels spent
+   * on a whole miniature card were pixels spent on a card nobody could read.
+   *
+   * Geometry is computed here, not in CSS: rotation and lift both derive from the
+   * card's offset from the fan's centre, and CSS cannot take abs() of a custom
+   * property with useful support. Each card gets --x/--rot/--dip and the stylesheet
+   * only composes them.
+   */
+  const n = inHand.length;
+  const mid = (n - 1) / 2;
+  const cardWidth = 104;
+  const available = Math.max(240, node.clientWidth - 24);
+  const spacing = n > 1 ? Math.min(cardWidth * 0.6, (available - cardWidth) / (n - 1)) : 0;
+
   inHand.forEach((id, index) => {
     let card = cards.get(id);
     if (!card) {
@@ -606,6 +628,12 @@ function patchHand(
       cards.set(id, card);
     }
     if (node.children[index + 1] !== card) node.insertBefore(card, node.children[index + 1] ?? null);
+
+    const off = index - mid;
+    card.style.setProperty('--x', `${Math.round(off * spacing)}px`);
+    card.style.setProperty('--rot', `${(off * 4).toFixed(1)}deg`);
+    card.style.setProperty('--dip', `${Math.round(Math.abs(off) * off * 0.9 + Math.abs(off) * 7)}px`);
+    card.style.zIndex = String(10 + index);
 
     const castable = playable.has(id);
     card.classList.toggle('hand__card--playable', castable);

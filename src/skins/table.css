@@ -434,21 +434,30 @@
 
 /* ---------- hand ---------- */
 
+/*
+ * The fan.
+ *
+ * Cards are big and hang off the bottom edge of the screen. What stays visible is the
+ * top band — name, cost, and enough art to recognise the card — which is the part of a
+ * hand a player actually consults mid-game. Rules text goes through the long-press
+ * reader regardless of size, so a fully-visible miniature card was spending its pixels
+ * on text nobody could read anyway.
+ *
+ * Each card carries --x / --rot / --dip from table.ts; this file only composes them,
+ * because rotation and lift both derive from distance-to-centre and CSS cannot take
+ * abs() of a custom property with support this game needs.
+ */
 .hand {
   flex: none;
-  height: 118px;
   position: relative;
-  background: linear-gradient(180deg, transparent, var(--shade));
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  padding-bottom: 6px;
+  height: 118px;
+  z-index: 14;
 }
 
 .hand__label {
   position: absolute;
   left: 11px;
-  top: 6px;
+  top: 4px;
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.13em;
@@ -457,27 +466,64 @@
 }
 
 .hand__card {
-  width: 70px;
-  border-radius: 5px;
+  /* The browser must never claim this touch for scrolling — the drag is the game. */
+  touch-action: none;
+  position: absolute;
+  left: 50%;
+  bottom: -58px;
+  width: 108px;
+  margin-left: -54px;
+  border-radius: 7px;
   overflow: hidden;
   border: 1px solid rgb(0 0 0 / 0.55);
-  cursor: pointer;
-  position: relative;
+  cursor: grab;
   padding: 0;
   background: none;
-  transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1.1), filter 0.2s;
+  min-height: 0;
+  min-width: 0;
+  box-shadow: 0 -4px 14px var(--shade);
+  transform:
+    translateX(var(--x, 0px))
+    translateY(calc(var(--dip, 0px) + var(--dy, 0px)))
+    translateX(var(--dx, 0px))
+    rotate(var(--rot, 0deg))
+    scale(var(--grab, 1));
   transform-origin: bottom center;
-  margin: 0 -13px;
-  box-shadow: 0 -3px 10px var(--shade);
+  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1), filter 0.2s;
 }
 
 .hand__card img { width: 100%; display: block; }
-.hand__card--up { transform: translateY(-22px) scale(1.13); z-index: 9; }
-.hand__card--playable { box-shadow: 0 -3px 10px var(--shade), 0 0 0 2px var(--acc); }
+
+.hand__card--playable {
+  box-shadow: 0 -4px 14px var(--shade), 0 0 0 2px var(--acc);
+}
 
 /* Unaffordable cards stay visible but obviously inert — hiding them would teach the
    player nothing about why they cannot cast them. */
 .hand__card--dim { filter: brightness(0.5) saturate(0.6); }
+
+/*
+ * Mid-drag: the card rides the finger. Transitions off, or the card lags the pointer
+ * by a full ease curve and the drag feels like towing a boat. pointer-events off so
+ * elementFromPoint at the drop sees the board underneath, not the card in the way.
+ */
+.hand__card--dragging {
+  --grab: 1.12;
+  --rot: 0deg;
+  transition: none;
+  cursor: grabbing;
+  pointer-events: none;
+  z-index: 40 !important;
+  box-shadow: 0 14px 34px var(--shade), 0 0 0 2px var(--acc);
+}
+
+/* Where a dragged card may go. The dashed inset reads as "a place", not a button. */
+.board--drop {
+  outline: 2px dashed var(--acc);
+  outline-offset: -8px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--acc) 7%, transparent);
+}
 
 .hand__backs { display: flex; justify-content: center; flex: none; height: 26px; overflow: hidden; }
 
@@ -515,15 +561,23 @@
 
 /* ---------- primary action button ---------- */
 
-/* Clears the hand AND the player rail: the button must never sit on top of your own
-   life total, which is the number you check most often. */
+/*
+ * The one action button lives in your own rail, in the empty stretch between your
+ * counts and your life total. That slot is structurally reserved — it never holds a
+ * creature, a card, or a pill — which the bottom corner of the board was not: a board
+ * wrapped to two rows put a creature's name under the button.
+ */
 .act {
   position: absolute;
-  right: 12px;
-  bottom: calc(190px + env(safe-area-inset-bottom));
+  right: 76px;
+  bottom: calc(121px + env(safe-area-inset-bottom));
   z-index: 25;
   min-height: 44px;
-  padding: 0 18px;
+  max-width: 44vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 16px;
   border-radius: 999px;
   border: 1px solid var(--acc);
   background: var(--acc);
@@ -544,7 +598,9 @@
   position: absolute;
   left: 11px;
   right: 68px;
-  top: 96px;
+  /* Below the opponent's rail, card backs and mana row — it was drawn across the
+     lands pill, which is exactly the kind of overlap this layout pass removes. */
+  top: 124px;
   z-index: 26;
   padding: 7px 12px;
   border-radius: 10px;
@@ -953,13 +1009,13 @@
 
 /* ---------- hints ---------- */
 
-/* Sits above your mana row rather than across it — the gems tell you what you can
-   afford, which is exactly what a hint about what to do next must not hide. */
+/* Above the action button's lane. The stacking order from the bottom is fixed:
+   fan, rail, mana, act button, hint, stack panel — so nothing can cover a control. */
 .hint {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: calc(208px + env(safe-area-inset-bottom));
+  bottom: calc(262px + env(safe-area-inset-bottom));
   z-index: 40;
   padding: 10px 13px;
   border-radius: 10px;
@@ -1073,7 +1129,7 @@
   position: absolute;
   right: 12px;
   left: 12px;
-  bottom: calc(246px + env(safe-area-inset-bottom));
+  bottom: calc(322px + env(safe-area-inset-bottom));
   z-index: 30;
   display: flex;
   flex-direction: column;

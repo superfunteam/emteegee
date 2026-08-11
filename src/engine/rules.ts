@@ -48,11 +48,16 @@
  * ## Pacing
  *
  * Spec §9.4: the game skips only those stops where advancing is the sole legal
- * action. That is implemented in {@link advancePhase} as "keep going while the
- * player with priority has nothing but `pass` (or an empty combat declaration,
- * which is the same thing wearing a different name) to choose from". Every
- * phase passed through still emits a `PHASE` event, so the animator can show
- * untap and draw happening even though nobody tapped to acknowledge them.
+ * action. Two mechanisms implement it. {@link advancePhase} handles the phase
+ * stops: "keep going while the player with priority has nothing but `pass` (or
+ * an empty combat declaration, which is the same thing wearing a different
+ * name) to choose from". {@link settlePriority} extends the same rule to stack
+ * windows: after every action `reduce` performs, any priority stop whose holder
+ * has no real choice is passed through automatically, so a spell nobody can
+ * respond to resolves inside the very `reduce` that cast it. Every phase passed
+ * through still emits a `PHASE` event and every auto-resolved spell its `CAST`
+ * and `RESOLVE`, so the animator can show untap, draw, and the spell landing
+ * even though nobody tapped to acknowledge them.
  */
 
 import type {
@@ -80,7 +85,7 @@ import {
   payMana,
   toughnessOf,
 } from './state';
-import { isLegal, legalActions, MULLIGAN_TURN } from './actions';
+import { inMulligan, isLegal, legalActions, MULLIGAN_TURN } from './actions';
 import { applyEffect, applyEffects } from './effects';
 import { declareAttackers, declareBlockers, resolveDamageStep } from './combat';
 import { makeRng, shuffle, type Rng } from './rng';
@@ -652,6 +657,77 @@ function pass(state: GameState): ReduceResult {
 }
 
 /**
+ * How many automatic passes is too many.
+ *
+ * {@link settlePriority} is structurally finite — see its comment for the
+ * argument — so a legal game can never come near this. Reaching it means some
+ * rule is undoing the progress the pass before it made, and spec §13 says an
+ * engine bug is loud, not a hung tab.
+ */
+const SETTLE_LIMIT = 100_000;
+
+/**
+ * Pass automatically through every stop where the player with priority has
+ * nothing to decide.
+ *
+ * Spec §9.4 — the game skips only those stops where advancing is the sole
+ * legal action — extended from phase stops to stack windows. A spell or
+ * trigger nobody can respond to is not a response window, it is ceremony: this
+ * is what makes it resolve inside the same `reduce` that created it, `CAST`
+ * and `RESOLVE` events and all, instead of stopping at a "Pass" button no card
+ * can justify.
+ *
+ * Each automatic pass is {@link pass}, exactly as if the player had tapped it,
+ * so it hands priority over, resolves the top of the stack, or advances the
+ * phase — whichever a manual pass would have done. The loop stops the moment
+ * anyone has a real decision:
+ *
+ * - the game is over, or a scry is pending — the scry outranks everything, and
+ *   only its controller can answer it;
+ * - the pre-game mulligan — keeping or mulliganing a hand is always a real
+ *   choice;
+ * - the priority holder has any action that is not a no-op: a castable instant
+ *   (a *real* response window, whether the holder is the human or the bot), a
+ *   combat declaration with creatures in it, an ordering worth choosing.
+ *
+ * The choice test is {@link hasRealChoice} — the same predicate `pass` and
+ * `advancePhase` already use, so there is exactly one definition of "nothing
+ * to do" in the engine.
+ *
+ * **The loop is finite.** Every iteration either hands priority to a player
+ * with a real choice (and exits), resolves one stack object, or advances at
+ * least one phase. No spell is ever cast here, and a resolving trigger cannot
+ * enqueue another (`resolvingTrigger`), so the stack drains in finitely many
+ * steps between phase changes. Every wrap of the phase list is a turn, every
+ * turn draws a card, and a library is finite — so a game in which nobody ever
+ * gets a real choice ends, by decking, with a winner, and the loop exits.
+ * {@link SETTLE_LIMIT} sits far above all of that as the loud guard.
+ */
+function settlePriority(state: GameState): ReduceResult {
+  let next = state;
+  const events: GameEvent[] = [];
+
+  for (let passes = 0; ; passes++) {
+    if (passes >= SETTLE_LIMIT) {
+      throw new Error(
+        `settlePriority: did not settle after ${SETTLE_LIMIT} automatic passes — this is an engine bug`,
+      );
+    }
+
+    if (next.winner !== null) break;
+    if (next.pendingScry) break;
+    if (inMulligan(next)) break;
+    if (hasRealChoice(next, next.priority)) break;
+
+    const passed = pass(next);
+    next = passed.state;
+    events.push(...passed.events);
+  }
+
+  return { state: next, events };
+}
+
+/**
  * Play a land: straight onto the battlefield, no stack involved, and the land
  * drop for the turn is spent.
  */
@@ -1060,9 +1136,14 @@ function dispatch(state: GameState, action: Action): ReduceResult {
  * that throw is an engine bug rather than user error, because the UI can only
  * offer what the generator enumerated (spec §13).
  *
- * State-based actions run last, after the action and after any resolutions or
- * phase changes it caused. They are idempotent, so the sweeps already done
- * inside {@link resolveTop} and {@link advancePhase} make this one free.
+ * State-based actions run after the action and after any resolutions or phase
+ * changes it caused. They are idempotent, so the sweeps already done inside
+ * {@link resolveTop} and {@link advancePhase} make this one free.
+ *
+ * Last of all the position settles: {@link settlePriority} passes through
+ * every stop where the player with priority has nothing to decide (spec §9.4),
+ * so the state this returns is always one somebody has a reason to look at —
+ * a real choice, a pending scry, a mulligan, or a winner.
  */
 export function reduce(state: GameState, action: Action): ReduceResult {
   if (!isLegal(state, action)) {
@@ -1070,6 +1151,10 @@ export function reduce(state: GameState, action: Action): ReduceResult {
   }
 
   const applied = dispatch(state, action);
-  const settled = stateBasedActions(applied.state);
-  return { state: settled.state, events: [...applied.events, ...settled.events] };
+  const swept = stateBasedActions(applied.state);
+  const settled = settlePriority(swept.state);
+  return {
+    state: settled.state,
+    events: [...applied.events, ...swept.events, ...settled.events],
+  };
 }
