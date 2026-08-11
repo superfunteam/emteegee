@@ -39,6 +39,7 @@ const HINTS: Record<string, string> = {
   // Board concepts
   summoningSick: 'A creature cannot attack the turn it arrives, unless it has haste.',
   stackFull: 'The stack is full — three things are already waiting to happen.',
+  stackOrder: 'The <b>last</b> thing added happens <b>first</b>. Their answer resolves before your spell.',
   firstBlock: 'Blocking costs you nothing. An unblocked attacker hits you for its full power.',
 };
 

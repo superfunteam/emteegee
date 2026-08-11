@@ -19,6 +19,7 @@ import {
 } from '../engine/state';
 import { legalActions, canCast } from '../engine/actions';
 import { el, clear } from './dom';
+import { patchStack } from './stack';
 
 /** One glyph per keyword, chosen to read at 9px. */
 const KEYWORD_GLYPH: Partial<Record<Keyword, string>> = {
@@ -116,11 +117,14 @@ export function createTable(callbacks: TableCallbacks): TableView {
   const hand = el('div.hand');
   const backs = el('div.hand__backs');
 
+  const stack = el('div.stack', { role: 'status' });
+  stack.hidden = true;
+
   const act = el<HTMLButtonElement>('button.act', { type: 'button' });
   act.addEventListener('click', () => callbacks.onAct());
 
   const root = el('div.table', { role: 'application', 'aria-label': 'Magic game table' },
-    oppRail, backs, oppMana, oppBoard, mid, youBoard, youMana, youRail, hand, act);
+    oppRail, backs, oppMana, oppBoard, mid, youBoard, youMana, youRail, hand, stack, act);
 
   const tiles = new Map<CardId, HTMLElement>();
   const handCards = new Map<CardId, HTMLElement>();
@@ -141,6 +145,7 @@ export function createTable(callbacks: TableCallbacks): TableView {
     sizeTiles(oppBoard);
     sizeTiles(youBoard);
     patchMid(mid, state, ui.you, callbacks);
+    patchStack(stack, state, ui.you);
     patchHand(hand, state, ui, handCards, actions, callbacks);
     patchBacks(backs, state, them);
 

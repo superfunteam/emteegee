@@ -13,6 +13,7 @@
  */
 
 import type { Action, CardId, GameEvent, GameState, PlayerId, TargetSelection } from '../engine/types';
+import { STACK_CAP } from '../engine/types';
 import { def, inst, isCreature, opponentOf, powerOf } from '../engine/state';
 import { inMulligan, legalActions } from '../engine/actions';
 import { reduce } from '../engine/rules';
@@ -512,8 +513,25 @@ export class Session {
    * of the same `GameState` at the same moment.
    */
   private render(): void {
+    this.noticeStack();
     this.table.patch(this.state, this.uiState());
     this.prompts.refresh(this.state);
+  }
+
+  /**
+   * Teach the stack at the first moment it is worth teaching.
+   *
+   * Two objects at once is when the rule actually bites: the player cast something, it
+   * did not happen, and the thing sitting on top of it is about to go first. Explaining
+   * last-in-first-out before that has nothing to point at.
+   */
+  private noticeStack(): void {
+    if (this.hint !== null) return;
+    if (this.state.stack.length >= STACK_CAP) {
+      this.hint = hintFor('stackFull');
+      return;
+    }
+    if (this.state.stack.length >= 2) this.hint = hintFor('stackOrder');
   }
 
   private uiState(): UiState {

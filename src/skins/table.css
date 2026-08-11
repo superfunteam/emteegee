@@ -1028,3 +1028,107 @@
 @media (prefers-reduced-motion: reduce) {
   .banner { animation: none; opacity: 1; }
 }
+
+/* ---------- the stack ---------- */
+
+/*
+ * Sits over the table rather than in the band layout, because the stack is transient:
+ * giving it a permanent row would leave a hole through most of a game, and reflowing
+ * the bands every time something is cast would move the board under the player's
+ * finger mid-decision.
+ *
+ * Anchored above the action button, since the two are read together — the stack says
+ * what is about to happen and the button says what you can do about it.
+ */
+.stack {
+  position: absolute;
+  right: 12px;
+  left: 12px;
+  bottom: calc(246px + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  pointer-events: none;
+  animation: stack-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
+
+.stack[hidden] { display: none; }
+
+@keyframes stack-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.stack__title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-left: 2px;
+}
+
+.stack__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 9px 5px 5px;
+  border-radius: 9px;
+  background: var(--zone);
+  border: 1px solid var(--edge-hi);
+  box-shadow: 0 4px 14px var(--shade);
+}
+
+/* Whose object it is, as a colored edge rather than only as a word — during a response
+   window "who cast this" is the first thing you need and the last thing you should
+   have to read. */
+.stack__item[data-owner='you'] { border-left: 3px solid var(--acc); }
+.stack__item[data-owner='them'] { border-left: 3px solid var(--danger); }
+
+/* The one that resolves next. Magic resolves backwards from how the stack was built,
+   which is the single most confusing thing about it, so the top row is marked rather
+   than merely first. */
+.stack__item--next { border-color: var(--acc); box-shadow: 0 4px 16px var(--shade), 0 0 0 1px var(--acc); }
+
+.stack__art {
+  width: 42px;
+  height: 30px;
+  border-radius: 5px;
+  object-fit: cover;
+  flex: none;
+  background: var(--edge);
+}
+
+.stack__body { min-width: 0; flex: 1; }
+
+.stack__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stack__meta {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stack__next {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--acc-on);
+  background: var(--acc);
+  border-radius: 5px;
+  padding: 3px 6px;
+  flex: none;
+}
