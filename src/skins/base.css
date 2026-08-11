@@ -24,7 +24,8 @@ body {
   padding: 0;
   height: 100%;
   overscroll-behavior: none;
-  background: #15100d;
+  /* Follows the skin, so the area behind the safe-area insets matches the table. */
+  background: var(--felt, #15100d);
 }
 
 body {

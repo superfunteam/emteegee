@@ -36,11 +36,10 @@ export function loadSkin(): Skin {
   return 'felt';
 }
 
-export function applySkin(skin: Skin, host: HTMLElement): void {
-  host.dataset.skin = skin;
-  for (const node of document.querySelectorAll<HTMLElement>('.table, .screen')) {
-    node.dataset.skin = skin;
-  }
+export function applySkin(skin: Skin, _host: HTMLElement): void {
+  // The tokens live on :root, so one attribute repaints the table and every screen at
+  // once — and the body background matches even where nothing is rendered yet.
+  document.documentElement.dataset.skin = skin;
   try {
     localStorage.setItem(SKIN_KEY, skin);
   } catch {
@@ -57,7 +56,7 @@ export function titleScreen(onPlay: () => void, onSettings: () => void): HTMLEle
   const settings = el<HTMLButtonElement>('button.title__link', { type: 'button', text: 'Settings' });
   settings.addEventListener('click', () => { sound.unlock(); sound.play('blip'); onSettings(); });
 
-  return el('div.screen.title', { dataSkin: loadSkin() },
+  return el('div.screen.title', {},
     el('h1.title__mark', { html: 'emtee<em>gee</em>' }),
     el('p.title__tag', { text: 'The easiest way to play the best card game.' }),
     play,
@@ -91,7 +90,7 @@ export function deckScreen(
       'aria-pressed': 'false',
       'aria-label': `${deck.name}, ${deck.theme}. Teaches ${deck.teaches}.`,
     },
-      el<HTMLImageElement>('img.deck__art', { src: `art/${deck.signature}-art.jpg`, alt: '', loading: 'lazy' }),
+      el<HTMLImageElement>('img.deck__art', { src: `art/${deck.signature}-art.jpg`, alt: '' }),
       el('div.deck__body', {},
         el('div.deck__name', { text: deck.name }),
         el('div.deck__theme', { text: deck.theme }),
@@ -143,7 +142,7 @@ export function deckScreen(
   const back = el<HTMLButtonElement>('button.screen__back', { type: 'button', text: '← back' });
   back.addEventListener('click', onBack);
 
-  return el('div.screen', { dataSkin: loadSkin() },
+  return el('div.screen', {},
     el('div.screen__head', {},
       el('h2.screen__title', { text: 'Pick a deck' }),
       back,
@@ -186,7 +185,7 @@ export function resultScreen(
   const verdict = el('h2.result__verdict', { text: won ? 'You win' : 'The Magician wins' });
   verdict.classList.add(won ? 'result__verdict--win' : 'result__verdict--loss');
 
-  return el('div.screen.result', { dataSkin: loadSkin() },
+  return el('div.screen.result', {},
     verdict,
     el('p.result__how', { text: info.how }),
     el('div.result__stats', {},
@@ -254,7 +253,7 @@ export function settingsScreen(
     hintsNote.textContent = `${hintsRemaining()} hints still to appear`;
   });
 
-  return el('div.screen', { dataSkin: current },
+  return el('div.screen', {},
     el('div.screen__head', {},
       el('h2.screen__title', { text: 'Settings' }),
       back,

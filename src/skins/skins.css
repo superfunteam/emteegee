@@ -1,8 +1,9 @@
 /*
  * Table skins.
  *
- * A skin is a set of custom properties on the table element and nothing else — no
- * component knows which skin is active. Adding a fourth costs one block below.
+ * A skin is a set of custom properties, declared once on the root element so the table
+ * and every screen inherit the same palette — no component knows which skin is active.
+ * Adding a fourth costs one block below.
  *
  * Values are the ones validated in docs/prototypes/skins.html at 390px.
  *
@@ -14,7 +15,8 @@
  *     theme; the player picks the skin explicitly.
  */
 
-.table {
+:root,
+:root[data-skin='felt'] {
   /* Felt — the default. Art glows against it; worst of the three in daylight. */
   --felt: #15100d;
   --felt-2: #1e1712;
@@ -33,7 +35,7 @@
   --badge-ink: #e9e0d0;
 }
 
-.table[data-skin='parchment'] {
+:root[data-skin='parchment'] {
   /* Warm paper. Art sits on a ground that shares its palette. */
   --felt: #e4d8c0;
   --felt-2: #f1e9d9;
@@ -52,7 +54,7 @@
   --badge-ink: #fbf6ea;
 }
 
-.table[data-skin='slate'] {
+:root[data-skin='slate'] {
   /* Cool neutral. Highest text contrast, crispest zone separation. */
   --felt: #dfe3e8;
   --felt-2: #edf0f3;
@@ -72,7 +74,7 @@
 }
 
 /* Mana colors are identity, not theme — they never change between skins. */
-.table {
+:root {
   --mana-w: #f3e9ce;
   --mana-u: #3a7fc4;
   --mana-b: #3a322c;

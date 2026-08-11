@@ -3973,7 +3973,7 @@
        "cardTypes": [
         "creature"
        ],
-       "controller": "any"
+       "controller": "opponent"
       },
       "amount": 2
      }
@@ -3984,7 +3984,7 @@
       "cardTypes": [
        "creature"
       ],
-      "controller": "any"
+      "controller": "opponent"
      }
     ]
    }

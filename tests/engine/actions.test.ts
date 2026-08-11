@@ -450,7 +450,7 @@ describe('legalActions: combat', () => {
       ],
       them: [],
     });
-    const arbitrary = { kind: 'declareAttackers', attackers: ['you1', 'you2'] } as const;
+    const arbitrary: Action = { kind: 'declareAttackers', attackers: ['you1', 'you2'] };
     const listed = legalActions(state).some(
       (a) => a.kind === 'declareAttackers' && a.attackers.join() === 'you1,you2',
     );

@@ -272,7 +272,7 @@ function patchBoard(
 
 function buildTile(id: CardId, callbacks: TableCallbacks): HTMLElement {
   const tile = el('button.tile', { type: 'button', dataCard: id },
-    el('img.tile__art', { alt: '', loading: 'lazy' }),
+    el('img.tile__art', { alt: '' }),
     el('div.tile__keywords', { 'aria-hidden': 'true' }),
     el('div.tile__pt', { 'aria-hidden': 'true' }),
     el('div.tile__name'),
