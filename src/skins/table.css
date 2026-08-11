@@ -153,6 +153,50 @@
 .gem--g { background: var(--mana-g); }
 .gem--c { background: var(--mana-c); }
 
+/*
+ * One pill per color: icon, count, on the color. The count is what is spendable right
+ * now; a color tapped dry keeps its pill, dimmed, so the row doubles as the turn's
+ * spend meter without anything moving around.
+ */
+.manapill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 21px;
+  padding: 0 8px 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgb(0 0 0 / 0.35);
+  box-shadow: inset 0 -2px 3px rgb(0 0 0 / 0.22);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 0.2s, filter 0.2s;
+}
+
+.manapill svg { display: block; }
+.manapill b { font-weight: 700; line-height: 1; }
+
+.manapill--w { background: var(--mana-w); color: #4a3c15; }
+.manapill--u { background: var(--mana-u); color: #eaf4ff; }
+.manapill--b { background: var(--mana-b); color: #d9d2c8; }
+.manapill--r { background: var(--mana-r); color: #ffefe9; }
+.manapill--g { background: var(--mana-g); color: #eafbea; }
+.manapill--c { background: var(--mana-c); color: #3a332a; }
+
+/* Spent dry: drained, not gone — the same rule the old gems learned the hard way,
+   because fading toward a light ground makes the pill invisible on light skins. */
+.manapill--dry { filter: grayscale(0.75); opacity: 0.5; box-shadow: none; }
+
+/* The land drop zone. Lands become this row, so this is where a dragged land says it
+   is going — same dashed grammar as the board's zone. */
+.mana--drop {
+  outline: 2px dashed var(--acc);
+  outline-offset: -3px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--acc) 9%, transparent);
+}
+
 .mana__lands {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -517,7 +561,10 @@
   touch-action: none;
   position: absolute;
   left: 50%;
-  bottom: -58px;
+  /* Deep enough that a card's top corner — rotation included — cannot reach the
+     action button in the rail above. The name band is what shows, which is the part
+     of a hand a player consults; reading goes through the long-press reader anyway. */
+  bottom: -76px;
   width: 108px;
   margin-left: -54px;
   border-radius: 7px;

@@ -71,9 +71,15 @@ function resolveDrop(x: number, y: number): DropTarget {
   const rail = under.closest<HTMLElement>('.rail');
   if (rail) return { kind: 'player', id: rail.classList.contains('rail--you') ? 0 : 1 };
 
-  // Anywhere in the middle of the table means "just play it": both boards, the strip
-  // between them, and the mana rows. Precision is for targets, not for land drops.
-  if (under.closest('.board, .mid, .mana')) return { kind: 'board' };
+  // Releasing back over the fan is the cancel gesture — the card goes home.
+  if (under.closest('.hand')) return { kind: 'nowhere' };
+
+  // EVERYTHING else on the table means "just play it". This started as an allowlist
+  // of board-ish zones, and a real thumb immediately found the gaps: the action
+  // button sits in the rail band, the stack panel floats over the boards, and a
+  // release on any of them read as a cancel that the glowing drop zone had just
+  // promised would work. Precision is for targets; the table itself is one zone.
+  if (under.closest('.table')) return { kind: 'board' };
 
   return { kind: 'nowhere' };
 }

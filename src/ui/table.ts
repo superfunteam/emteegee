@@ -116,6 +116,12 @@ export interface UiState {
   incoming: { player: PlayerId; amount: number } | null;
   /** A dragged card could land on open felt: your board reads as a drop zone. */
   boardDrop: boolean;
+  /**
+   * The dragged card is a land: the mana row is its drop zone. Lands do not go where
+   * creatures go — they become the row of mana — and lighting the row they will end
+   * up in teaches the abstraction in one gesture.
+   */
+  landDrop: boolean;
 }
 
 export function createTable(callbacks: TableCallbacks): TableView {
@@ -154,6 +160,7 @@ export function createTable(callbacks: TableCallbacks): TableView {
     patchBoard(oppBoard, state, them, ui, tiles, callbacks);
     patchBoard(youBoard, state, ui.you, ui, tiles, callbacks);
     youBoard.classList.toggle('board--drop', ui.boardDrop);
+    youMana.classList.toggle('mana--drop', ui.landDrop);
     // Sized after both boards exist, so each measures the height it actually got.
     sizeTiles(oppBoard);
     sizeTiles(youBoard);
@@ -313,30 +320,60 @@ function patchMana(
   clear(node);
   node.append(el('span.mana__label', { 'aria-hidden': 'true', text: 'mana' }));
 
-  // One gem per land, spent gems drained rather than removed, so the player can see
-  // both what they have and what they have used this turn.
-  const gems: Array<{ color: Color | 'C'; spent: boolean }> = [];
+  /*
+   * One pill per color: an icon, a count, on the color. "Two Forests" reads as a tree,
+   * a 2, and a green pill — which a beginner can say out loud. The row of anonymous
+   * dots it replaces could only answer "how many lands", never "how many of WHAT",
+   * and what is the entire question when deciding if a card is castable.
+   *
+   * The number is the mana available right now: it falls as lands tap and the pill
+   * dims when a color is spent dry, so the row doubles as the turn's spend meter.
+   */
+  const total = new Map<Color | 'C', number>();
   for (const id of lands) {
     const produces = def(state, id).producesMana?.[0] ?? 'C';
-    gems.push({ color: produces, spent: inst(state, id).tapped });
+    total.set(produces, (total.get(produces) ?? 0) + 1);
   }
-  gems.sort((a, b) => Number(a.spent) - Number(b.spent));
 
-  const available = Object.values(pool).reduce<number>((n, v) => n + (v ?? 0), 0);
-  for (const gem of gems) {
-    const dot = el('span.gem');
-    dot.classList.add(`gem--${gem.color.toLowerCase()}`);
-    if (gem.spent) dot.classList.add('gem--spent');
-    node.append(dot);
+  const said: string[] = [];
+  for (const [color, count] of total) {
+    const untapped = pool[color] ?? 0;
+    const pill = el('span.manapill', { 'aria-hidden': 'true' });
+    pill.classList.add(`manapill--${color.toLowerCase()}`);
+    if (untapped === 0) pill.classList.add('manapill--dry');
+    pill.innerHTML = MANA_ICON[color] ?? '';
+    pill.append(el('b', { text: String(untapped) }));
+    node.append(pill);
+    said.push(`${untapped} of ${count} ${COLOR_NAME[color]}`);
   }
 
   node.setAttribute('aria-label',
-    `${isYou ? 'Your' : "The Magician's"} mana: ${available} available of ${lands.length} ${lands.length === 1 ? 'land' : 'lands'}`);
+    `${isYou ? 'Your' : "The Magician's"} mana: ${said.length ? said.join(', ') : 'none yet'}`);
 
-  const button = el('button.mana__lands', { type: 'button', text: `${lands.length} ${lands.length === 1 ? 'land' : 'lands'}` });
+  const button = el('button.mana__lands', {
+    type: 'button', text: `${lands.length} ${lands.length === 1 ? 'land' : 'lands'}`,
+  });
   if (isYou) button.addEventListener('click', () => callbacks.onManaTap(player));
   node.append(button);
 }
+
+const COLOR_NAME: Record<Color | 'C', string> = {
+  W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green', C: 'colorless',
+};
+
+/**
+ * Tiny inline icons, one per color, drawn to survive 12px: a sun, a drop, a skull, a
+ * flame, a tree, a diamond. `currentColor` fills them, so each pill's own contrast
+ * color does the theming and a new skin costs nothing here.
+ */
+const MANA_ICON: Record<string, string> = {
+  W: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><circle cx="6" cy="6" r="2.6" fill="currentColor"/><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M6 .8v1.6M6 9.6v1.6M.8 6h1.6M9.6 6h1.6M2.3 2.3l1.1 1.1M8.6 8.6l1.1 1.1M9.7 2.3 8.6 3.4M3.4 8.6 2.3 9.7"/></g></svg>',
+  U: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M6 .8C4 3.6 2.6 5.5 2.6 7.4a3.4 3.4 0 0 0 6.8 0C9.4 5.5 8 3.6 6 .8Z"/></svg>',
+  B: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M6 1a4.2 4.2 0 0 0-4.2 4.2c0 1.6.9 2.9 2 3.6V11h1.4V9.6h1.6V11h1.4V8.8c1.1-.7 2-2 2-3.6A4.2 4.2 0 0 0 6 1Z"/><circle cx="4.4" cy="5.2" r="1" fill="var(--felt, #15100d)"/><circle cx="7.6" cy="5.2" r="1" fill="var(--felt, #15100d)"/></svg>',
+  R: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M6.2.9C7 2.6 9.6 3.7 9.6 6.8a3.7 3.7 0 0 1-7.4 0c0-1.5 1-2.5 1.6-3.6.4.8.9 1.2 1.4 1.4C5.3 3.2 5.6 2 6.2.9Z"/></svg>',
+  G: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M6 .8 9.8 6H7.6l2 3H6.9v2.2H5.1V9H2.4l2-3H2.2L6 .8Z"/></svg>',
+  C: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M6 1.2 10.8 6 6 10.8 1.2 6Z"/></svg>',
+};
 
 /* ------------------------------------------------------------ battlefield */
 

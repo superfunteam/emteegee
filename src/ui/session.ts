@@ -163,22 +163,35 @@ export class Session {
       a => (a.kind === 'castSpell' || a.kind === 'playLand') && a.card === card,
     );
 
+    const untargeted = options.find(
+      a => a.kind === 'playLand' || (a.kind === 'castSpell' && a.targets === null),
+    );
+
     let chosen: Action | undefined;
     switch (target.kind) {
       case 'card':
         chosen = options.find(a =>
           a.kind === 'castSpell' && Array.isArray(a.targets) &&
           a.targets.length === 1 && a.targets[0] === target.id);
+        // A land released over a creature is not aiming at it — nothing a land does
+        // takes a target. Any drop on the table plays an untargeted card; precision
+        // is only demanded of the cards that actually point at something.
+        chosen ??= untargeted;
         break;
       case 'player': {
         const wanted = target.id === 0 ? 'player0' : 'player1';
         chosen = options.find(a => a.kind === 'castSpell' && a.targets === wanted);
+        // The band directly above the fan is YOUR OWN RAIL, so this is where every
+        // short drag ends. A land released there sprang back — the drop zone glowed
+        // and then refused the drop, which reads as broken rather than as strict.
+        chosen ??= untargeted;
         break;
       }
       case 'board':
-        chosen = options.find(a => a.kind === 'playLand' || (a.kind === 'castSpell' && a.targets === null));
+        chosen = untargeted;
         break;
       case 'nowhere':
+        // Released back in the fan: that is the cancel gesture, and it stays one.
         break;
     }
 
@@ -634,6 +647,7 @@ export class Session {
       speech: this.speech,
       incoming: this.incomingDamage(),
       boardDrop: this.boardDroppable(),
+      landDrop: this.landDroppable(),
     };
   }
 
@@ -660,6 +674,19 @@ export class Session {
       a => (a.kind === 'playLand' && a.card === source) ||
            (a.kind === 'castSpell' && a.card === source && a.targets === null),
     );
+  }
+
+  /**
+   * True while the dragged card is a land: the mana row lights up as its own drop
+   * zone. Lands do not go where creatures go — they become the row of mana — and a
+   * drop zone that shows where the card will END UP teaches the mana row's whole
+   * abstraction in one gesture.
+   */
+  private landDroppable(): boolean {
+    if (this.mode.kind !== 'dragging') return false;
+    const source = this.mode.card;
+    if (!def(this.state, source).cardTypes.includes('land')) return false;
+    return legalActions(this.state).some(a => a.kind === 'playLand' && a.card === source);
   }
 
   private targetablePlayers(): Set<PlayerId> {
