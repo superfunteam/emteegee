@@ -45,9 +45,19 @@ const GLYPH_PRIORITY: Keyword[] = [
   'menace', 'lifelink', 'vigilance', 'reach', 'haste', 'defender', 'hexproof', 'ward', 'flash',
 ];
 
-const PHASE_LABEL: Partial<Record<string, string>> = {
-  untap: 'un', upkeep: 'up', draw: 'dr', main1: 'm1',
-  declareAttackers: 'cb', main2: 'm2', end: 'end',
+/**
+ * The current phase is spelled out; every other phase is a dot.
+ *
+ * The old rail read "UN UP DR M1 CB M2 END" — seven abbreviations in a game whose
+ * whole voice is "the button says exactly what the tap will do". A beginner cannot
+ * expand M1, and a player who can does not need the rail. One word plus six dots keeps
+ * what the rail is actually for: the shape of a turn, and where in it you are —
+ * especially during the Magician's turn, when the sweeping dot is the visible
+ * heartbeat of a turn resolving.
+ */
+const PHASE_WORD: Partial<Record<string, string>> = {
+  untap: 'Untap', upkeep: 'Upkeep', draw: 'Draw', main1: 'Main',
+  declareAttackers: 'Combat', main2: 'Second main', end: 'End',
 };
 
 /** The phases the rail shows. The rest are real but not worth a slot. */
@@ -274,8 +284,11 @@ function patchRail(
 
   node.querySelector('.js-hand')!.textContent = String(p.hand.length);
   node.querySelector('.js-lib')!.textContent = String(p.library.length);
+  // "your turn" would sit exactly where the action button lives — and it is triple
+  // redundant with the gold rail edge, the enabled gold button and the turn banner.
+  // The opponent's rail keeps its status: nothing else occupies that slot.
   node.querySelector('.js-status')!.textContent =
-    state.winner !== null ? '' : active ? (isYou ? 'your turn' : 'thinking…') : '';
+    state.winner !== null || isYou ? '' : active ? 'thinking…' : '';
 
   // A rail becomes a tap target only while a spell can actually point at it, so the
   // whole bar lights up rather than asking the player to find a small hitbox.
@@ -557,9 +570,9 @@ function patchMid(node: HTMLElement, state: GameState, you: PlayerId, callbacks:
     const ex = el<HTMLButtonElement>('button', { type: 'button', 'aria-label': 'Exile' });
     ex.addEventListener('click', () => callbacks.onZoneTap('exile', you));
 
-    phases = el('div.phases', { role: 'status', 'aria-label': 'Turn phase' });
+    phases = el('div.phases', { role: 'status' });
     for (const phase of RAIL_PHASES) {
-      phases.append(el('b', { dataPhase: phase, text: PHASE_LABEL[phase] ?? phase }));
+      phases.append(el('b', { dataPhase: phase }));
     }
     node.append(el('div.yard', {}, gy), phases, el('div.yard', {}, ex));
   }
@@ -571,11 +584,15 @@ function patchMid(node: HTMLElement, state: GameState, you: PlayerId, callbacks:
   const shown = index >= combatStart && index <= combatEnd ? 'declareAttackers' : state.phase;
 
   for (const b of phases.querySelectorAll<HTMLElement>('b')) {
-    b.classList.toggle('on', b.dataset.phase === shown);
+    const on = b.dataset.phase === shown;
+    b.classList.toggle('on', on);
+    // The word only exists on the lit segment; everything else collapses to a dot.
+    b.textContent = on ? (PHASE_WORD[b.dataset.phase ?? ''] ?? b.dataset.phase ?? '') : '';
   }
+  phases.setAttribute('aria-label', `Turn phase: ${PHASE_WORD[shown] ?? shown}`);
 
-  node.querySelector('.yard button')!.textContent = `GY ${state.players[you].graveyard.length}`;
-  node.querySelectorAll('.yard button')[1]!.textContent = `EX ${state.players[you].exile.length}`;
+  node.querySelector('.yard button')!.textContent = `Grave ${state.players[you].graveyard.length}`;
+  node.querySelectorAll('.yard button')[1]!.textContent = `Exile ${state.players[you].exile.length}`;
 }
 
 /* ------------------------------------------------------------------- hand */
