@@ -24,7 +24,7 @@ import { legalActions } from '../engine/actions';
 import { el, clear } from './dom';
 import { sound } from '../audio/kit';
 
-/** Fixed order, so a floating gem never jumps sideways when another one appears. */
+/** Fixed order, so a floating symbol never jumps sideways when another appears. */
 const MANA_KEYS: readonly (Color | 'C')[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
 const COLOR_WORD: Record<Color | 'C', string> = {
@@ -332,7 +332,7 @@ export function showZone(
 /**
  * The real lands behind the mana row, each untapped one tappable for mana.
  *
- * The gems are a summary; this is where the abstraction gives way and shows the cards
+ * The row is a summary; this is where the abstraction gives way and shows the cards
  * they stand for, tapped ones rotated exactly as they would be on a table. Casting
  * taps lands for you (spec §9.3), so this exists for the player who wants the mana
  * floating *before* they decide what to spend it on — and for the player who taps a
@@ -379,9 +379,11 @@ function landsPanel(
         'aria-label': `Floating mana: ${floating.map(key => COLOR_WORD[key]).join(', ')}`,
       }, el('span.panel__floatLabel', { 'aria-hidden': 'true', text: 'floating' }));
       for (const key of floating) {
-        const gem = el('span.gem');
-        gem.classList.add(`gem--${key.toLowerCase()}`);
-        row.append(gem);
+        // Floating mana is mana, so it wears the same symbol the row and the deck
+        // picker use. One vocabulary for colour across the whole app.
+        row.append(el<HTMLImageElement>('img.manaicon', {
+          src: `mana/${key.toLowerCase()}.png`, alt: '', width: '19', height: '19',
+        }));
       }
       body.append(row);
     }

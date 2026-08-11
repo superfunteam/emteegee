@@ -132,70 +132,72 @@
   margin-right: 2px;
 }
 
-.gem {
+/* The mana symbols, wherever a bare colour used to stand: the row's pills, the deck
+   picker's colours, floating mana. They bring their own edge and their own colour,
+   so the ring and inner shadow the flat gems needed would only muddy them. */
+.manaicon {
   width: 19px;
   height: 19px;
-  border-radius: 50%;
-  border: 1.5px solid var(--gemring);
   flex: none;
-  box-shadow: inset 0 -2px 3px rgb(0 0 0 / 0.24);
-  transition: filter 0.2s, opacity 0.2s;
+  display: block;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.35));
 }
 
-/* Spent mana drains and keeps its ring rather than fading out. Opacity alone
-   disappears against the light skins. */
-.gem--spent { filter: grayscale(0.85); opacity: 0.42; box-shadow: none; }
-
-.gem--w { background: var(--mana-w); }
-.gem--u { background: var(--mana-u); }
-.gem--b { background: var(--mana-b); }
-.gem--r { background: var(--mana-r); }
-.gem--g { background: var(--mana-g); }
-.gem--c { background: var(--mana-c); }
 
 /*
- * One pill per color: icon, count, on the color. The count is what is spendable right
- * now; a color tapped dry keeps its pill, dimmed, so the row doubles as the turn's
- * spend meter without anything moving around.
+ * One pill per color: the symbol, then the count.
+ *
+ * The symbol is the real Magic mana disc, so IT carries the color identity — which
+ * means the capsule behind it must not. A solid pill of the same hue swallowed the
+ * pastel badge whole; a tint of it keeps the pill unmistakably green or blue while
+ * leaving the disc the brightest thing in the row. The count is what is spendable
+ * right now, so the row doubles as the turn's spend meter, and a color tapped dry
+ * keeps its pill — dimmed, not gone.
  */
 .manapill {
+  --pill: var(--mana-c);
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 21px;
-  padding: 0 8px 0 6px;
+  height: 24px;
+  padding: 0 8px 0 4px;
   border-radius: 999px;
-  border: 1px solid rgb(0 0 0 / 0.35);
-  box-shadow: inset 0 -2px 3px rgb(0 0 0 / 0.22);
+  /* The outline is the skin's own edge token, never the mana color. White mana is a
+     pale cream: tinted at 20% it was invisible against parchment, so the capsule
+     vanished on exactly the skin where the disc needs a frame most. The color still
+     tints the fill — the pill reads green or blue — but what guarantees it reads AT
+     ALL is a border that adapts to the ground. */
+  border: 1px solid var(--edge-hi);
+  background: color-mix(in srgb, var(--pill) 17%, transparent);
+  color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   transition: opacity 0.2s, filter 0.2s;
 }
 
-.manapill svg { display: block; }
-.manapill b { font-weight: 700; line-height: 1; }
-
-.manapill--w { background: var(--mana-w); color: #4a3c15; }
-.manapill--u { background: var(--mana-u); color: #eaf4ff; }
-.manapill--b { background: var(--mana-b); color: #d9d2c8; }
-.manapill--r { background: var(--mana-r); color: #ffefe9; }
-.manapill--g { background: var(--mana-g); color: #eafbea; }
-.manapill--c { background: var(--mana-c); color: #3a332a; }
-
-/* Spent dry: drained, not gone — the same rule the old gems learned the hard way,
-   because fading toward a light ground makes the pill invisible on light skins. */
-.manapill--dry { filter: grayscale(0.75); opacity: 0.5; box-shadow: none; }
-
-/* The land drop zone. Lands become this row, so this is where a dragged land says it
-   is going — same dashed grammar as the board's zone. */
-.mana--drop {
-  outline: 2px dashed var(--acc);
-  outline-offset: -3px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--acc) 9%, transparent);
+.manapill__icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  /* A hairline of the felt behind the disc separates it from the tint it sits on,
+     at every skin, without a per-skin rule. */
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.45));
 }
+
+.manapill b { line-height: 1; }
+
+.manapill--w { --pill: var(--mana-w); }
+.manapill--u { --pill: var(--mana-u); }
+.manapill--b { --pill: var(--mana-b); }
+.manapill--r { --pill: var(--mana-r); }
+.manapill--g { --pill: var(--mana-g); }
+.manapill--c { --pill: var(--mana-c); }
+
+/* Spent dry: drained, not gone — fading toward the ground makes a pill vanish on
+   the light skins, so desaturate and dim instead. */
+.manapill--dry { filter: grayscale(0.8); opacity: 0.45; }
 
 .mana__lands {
   margin-left: auto;

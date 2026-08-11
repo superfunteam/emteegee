@@ -16,8 +16,8 @@ export type Skin = 'felt' | 'parchment' | 'slate';
 
 const SKIN_KEY = 'emteegee.skin';
 
-const MANA_CLASS: Record<string, string> = {
-  W: 'gem--w', U: 'gem--u', B: 'gem--b', R: 'gem--r', G: 'gem--g',
+const COLOR_NAME: Record<string, string> = {
+  W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green',
 };
 
 const TIERS: Array<{ id: Tier; name: string; note: string }> = [
@@ -93,14 +93,19 @@ export function deckScreen(
     const button = el<HTMLButtonElement>('button.deck', {
       type: 'button',
       'aria-pressed': 'false',
-      'aria-label': `${deck.name}, ${deck.theme}. Teaches ${deck.teaches}.`,
+      'aria-label': `${deck.name}, ${deck.colors.map(c => COLOR_NAME[c] ?? c).join(' and ')}. `
+        + `${deck.theme}. Teaches ${deck.teaches}.`,
     },
       el<HTMLImageElement>('img.deck__art', { src: `art/${deck.signature}-art.jpg`, alt: '' }),
       el('div.deck__body', {},
         el('div.deck__name', { text: deck.name }),
         el('div.deck__theme', { text: deck.theme }),
         el('div.deck__pips', {},
-          ...deck.colors.map(c => el('span.deck__pip', { class: `deck__pip ${MANA_CLASS[c] ?? ''}` })),
+          // The deck's colors, in the same symbols the table uses — so the thing you
+          // picked on this screen is the thing you recognise in the mana row.
+          ...deck.colors.map(c => el<HTMLImageElement>('img.deck__pip', {
+            src: `mana/${c.toLowerCase()}.png`, alt: '', width: '16', height: '16',
+          })),
           el('span.deck__teaches', { text: deck.teaches }),
         ),
       ),
