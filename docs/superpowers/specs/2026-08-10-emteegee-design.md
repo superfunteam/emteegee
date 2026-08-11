@@ -503,7 +503,57 @@ UI work begins, so the UI is built against an engine that is already known corre
 | 9 | Screens, hints, result flow | A player can go title → deck → match → rematch without a dead end |
 | 10 | Performance and accessibility pass | 60fps on a mid-range phone; every control labeled and reachable |
 
-## 16. Licensing and attribution
+## 16. Vocabulary revision 1 (2026-08-10)
+
+Authoring behavior for the 159-card pool proved the vocabulary in §5 too narrow to
+express a playable set of six decks. The gap was found the right way: the authors were
+told to declare a card unimplementable rather than approximate it, and 45 cards came
+back rejected. Grouping the rejections by *what was missing* rather than by card showed
+a handful of gaps doing almost all the damage.
+
+The worst was **"any target"**. Every burn spell in Magic reads "deals N damage to any
+target", meaning a creature or a player at the caster's choice. `EffectTarget` was
+`TargetFilter | 'self' | 'player'`, with `TargetFilter` describing permanents only, so
+there was no way to express the choice. That single gap removed Lightning Bolt, Shock,
+Incinerate, Searing Spear, Volcanic Hammer, Mogg Fanatic, Ember Hauler, Prodigal
+Pyromancer and Bogardan Firefiend — which is to say, it removed the Ember deck.
+
+### Added
+
+| Change | Recovers |
+|---|---|
+| `EffectTarget` gains `'any'` — creature or player, chosen on cast | the entire burn suite, 9 cards |
+| `staticPump` gains `keywords?: Keyword[]` | Goblin Chieftain, Field Marshal — both lords |
+| `TargetFilter` gains `notColors`, `notCardTypes` | Doom Blade, Terror, Dark Banishing, Sunlance — most of black's removal |
+| `draw`/`discard`/`gainLife`/`loseLife` player gains `'target'` | Sign in Blood, Bloodrite Invoker |
+| `TriggerEvent` gains `onOtherEnterBattlefield` | Soul Warden — Bloom's lifegain engine |
+| `StaticAbility` gains `{ kind: 'cantBlock' }` | Vampire Interloper, Cloud Elemental |
+| `Trigger` gains `targets?: TargetFilter[]` | resolves where a triggered ability's target is declared |
+
+That last one is a correctness fix rather than a card recovery. `CardDef.targets` was
+carrying both a spell's targets and a triggered ability's targets, which are chosen at
+different moments; two reviewers read the convention in opposite directions, which is
+the tell that the type was wrong. Triggers now declare their own.
+
+### Deliberately still missing
+
+These stay out. Each would need real machinery, and the cards they block are not worth
+it for a beginner set:
+
+| Missing | Blocks |
+|---|---|
+| Damage prevention | Fog Bank, Seraph of the Sword, Serra Paladin |
+| Skip-untap ("doesn't untap during its controller's next untap step") | Sleep, Frost Lynx, Wall of Frost |
+| Conditional statics ("as long as you control a Forest") | Kird Ape, Ballynock Cohort |
+| Conditional and optional triggers | Vampire Lacerator, Netcaster Spider, Aven Fisher |
+| `AbilityCost` sacrifice-another / exile-self | Vampire Aristocrat, Sengir Nosferatu |
+| Setting base power/toughness | Nightsky Mimic |
+
+The rule that produced this list is worth keeping: **a behavior that approximately
+matches a card is worse than not shipping the card.** Half of Fog Bank is a 0/2 flier
+that trades with anything, which is a different card wearing the same art.
+
+## 17. Licensing and attribution
 
 - **Code**: open source, MIT.
 - **Card names, rules text, and game rules**: not copyrightable as such; reproduced for
