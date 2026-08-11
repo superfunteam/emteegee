@@ -61,6 +61,44 @@ function close(): void {
  */
 type Dismiss = 'anywhere' | 'backdrop' | 'never';
 
+/**
+ * The card reader: its own layer, above whatever panel is open.
+ *
+ * `open()` replaces the current overlay, which is right for panels — only one question
+ * can be in front of the player at a time. It is wrong for reading a card, because a
+ * player reads a card *in order to answer* the panel underneath. Sharing one slot
+ * would have meant tapping a card in your opening hand destroyed the opening hand.
+ */
+let reader: HTMLElement | null = null;
+let detachReader: (() => void) | null = null;
+
+function closeReader(): void {
+  if (!reader) return;
+  sound.play('zoom-close', { gain: 0.5 });
+  detachReader?.();
+  detachReader = null;
+  reader.remove();
+  reader = null;
+}
+
+function openReader(host: HTMLElement, content: HTMLElement, label: string): void {
+  closeReader();
+  sound.play('zoom-open', { gain: 0.6 });
+
+  const layer = el('div.overlay.overlay--reader', {
+    role: 'dialog', 'aria-modal': 'true', 'aria-label': label,
+  });
+  layer.append(content);
+  layer.addEventListener('click', () => closeReader());
+
+  const onKey = (ev: KeyboardEvent): void => { if (ev.key === 'Escape') closeReader(); };
+  window.addEventListener('keydown', onKey);
+  detachReader = () => window.removeEventListener('keydown', onKey);
+
+  host.append(layer);
+  reader = layer;
+}
+
 function open(host: HTMLElement, content: HTMLElement, label: string, dismiss: Dismiss = 'anywhere'): void {
   close();
   sound.play('zoom-open', { gain: 0.6 });
@@ -164,29 +202,77 @@ function button(text: string, label: string, quiet = false): HTMLButtonElement {
 
 /* -------------------------------------------------------------------- zoom */
 
-/** The full printed card, plus who painted it. */
-export function showCard(host: HTMLElement, state: GameState, card: CardId): void {
+/** An action a card affords, offered from inside the enlarged view. */
+export interface CardAction {
+  label: string;
+  /** Screen-reader text, since the visible label is often two words. */
+  aria: string;
+  run: () => void;
+  quiet?: boolean;
+}
+
+/**
+ * The full printed card, as large as the screen allows.
+ *
+ * This is the only place a card can actually be *read*, so it is worth the whole
+ * viewport. The earlier version capped at 260px wide, which is legible for a name and
+ * a mana cost and useless for rules text — and rules text is the entire reason a
+ * beginner opens a card.
+ *
+ * Any action the card affords comes with it. That is what lets every other surface
+ * treat a tap as "show me this" rather than as a commitment: you read the card at full
+ * size and then decide, instead of deciding and then finding out.
+ */
+export function showCard(
+  host: HTMLElement,
+  state: GameState,
+  card: CardId,
+  actions: CardAction[] = [],
+): void {
   const card_ = inst(state, card);
+  const isToken = card_.isToken;
+  const spec = card_.tokenSpec;
+  const d = isToken ? null : def(state, card);
 
-  if (card_.isToken) {
-    const spec = card_.tokenSpec;
-    const body = el('div', { style: 'text-align:center' },
-      el<HTMLImageElement>('img.overlay__card', { src: spec?.art ?? '', alt: spec?.name ?? 'Token' }),
-      el('div.overlay__artist', { text: `${spec?.name ?? 'Token'} · ${spec?.power ?? 0}/${spec?.toughness ?? 0} token` }),
-    );
-    open(host, body, spec?.name ?? 'Token');
-    return;
-  }
+  const name = isToken ? (spec?.name ?? 'Token') : d!.name;
+  const src = isToken ? (spec?.art ?? '') : d!.image;
 
-  const d = def(state, card);
-  const image = el<HTMLImageElement>('img.overlay__card', { src: d.image, alt: d.name });
-  image.onerror = () => { image.replaceWith(fallbackCard(state, card)); };
+  const image = el<HTMLImageElement>('img.overlay__card', { src, alt: name });
+  if (isToken) image.classList.add('overlay__card--token');
+  else image.onerror = () => { image.replaceWith(fallbackCard(state, card)); };
 
-  const body = el('div', { style: 'text-align:center;position:relative' },
+  const caption = isToken
+    ? `${name} · ${spec?.power ?? 0}/${spec?.toughness ?? 0} token`
+    : (d!.artist ? `Illustrated by ${d!.artist}` : '');
+
+  const body = el('div.overlay__body', {},
     image,
-    el('div.overlay__artist', { text: d.artist ? `Illustrated by ${d.artist}` : '' }),
+    caption ? el('div.overlay__artist', { text: caption }) : null,
+    actions.length ? cardActions(actions) : null,
   );
-  open(host, body, d.name);
+
+  openReader(host, body, name);
+}
+
+/**
+ * The buttons under an enlarged card.
+ *
+ * They stop the tap from reaching the overlay backdrop, which closes on click —
+ * otherwise choosing an action would also dismiss the card, and on a slow render the
+ * player would see their own decision flicker away.
+ */
+function cardActions(actions: CardAction[]): HTMLElement {
+  const row = el('div.overlay__actions', {});
+  for (const action of actions) {
+    const node = button(action.label, action.aria, action.quiet ?? false);
+    node.addEventListener('click', ev => {
+      ev.stopPropagation();
+      closeReader();
+      action.run();
+    });
+    row.append(node);
+  }
+  return row;
 }
 
 /**
@@ -222,7 +308,16 @@ export function showZone(
 
   for (const id of ids) {
     const d = def(state, id);
-    grid.append(el<HTMLImageElement>('img.panel__thumb', { src: d.image, alt: d.name }));
+    // A graveyard is a list of cards you are trying to remember the text of. Thumbnails
+    // alone answered "how many", never "which".
+    const thumb = el<HTMLButtonElement>('button.panel__thumbButton', {
+      type: 'button', 'aria-label': `Read ${d.name}`,
+    }, el<HTMLImageElement>('img.panel__thumb', { src: d.image, alt: '' }));
+    thumb.addEventListener('click', ev => {
+      ev.stopPropagation();
+      showCard(host, state, id);
+    });
+    grid.append(thumb);
   }
 
   const body = el('div.panel', {},
@@ -247,7 +342,7 @@ export function showZone(
  * is a land the engine will accept.
  */
 function landsPanel(
-  state: GameState, player: PlayerId, onTap: (card: CardId) => void,
+  host: HTMLElement, state: GameState, player: PlayerId, onTap: (card: CardId) => void,
 ): { body: HTMLElement; paint: (state: GameState) => void; label: string } {
   const body = el('div.panel');
   let signature = '';
@@ -311,7 +406,11 @@ function landsPanel(
           : canTap
             ? `${name}, tap for one ${makes ? COLOR_WORD[makes] : 'colorless'} mana`
             : `${name}, untapped`,
-        onTap: canTap ? () => onTap(id) : null,
+        // Always readable, even when it cannot be tapped — a land the player cannot
+        // use is exactly the one they are most likely to want to look at.
+        onTap: () => showCard(host, next, id, canTap
+          ? [{ label: 'Tap for mana', aria: `Tap ${name} for one ${makes ? COLOR_WORD[makes] : 'colorless'} mana`, run: () => onTap(id) }]
+          : []),
       }));
     }
     body.append(grid);
@@ -341,7 +440,7 @@ function landsPanel(
  * left for the player to work out from the highlights.
  */
 function mulliganPanel(
-  state: GameState, player: PlayerId,
+  host: HTMLElement, state: GameState, player: PlayerId,
   onKeep: (toBottom: CardId[]) => void, onMulligan: () => void,
 ): HTMLElement {
   const hand = state.players[player].hand;
@@ -371,20 +470,33 @@ function mulliganPanel(
         src: def(state, id).image,
         mark: chosen ? '↓' : null,
         label: required === 0
-          ? `${name}. Nothing to put back this time.`
+          ? `${name}. Tap to read it.`
           : chosen
-            ? `${name}, going to the bottom. Tap to keep it instead.`
-            : `${name}. Tap to put it on the bottom.`,
-        onTap: required === 0 ? null : () => {
-          if (chosen) marked.splice(at, 1);
-          else {
-            // Full already: the oldest pick makes room, so a player can always change
-            // their mind by tapping the card they want rather than one they do not.
-            if (marked.length >= required) marked.shift();
-            marked.push(id);
-          }
-          sound.play('select');
-          paint();
+            ? `${name}, going to the bottom. Tap to read it, or to keep it instead.`
+            : `${name}. Tap to read it, or to put it on the bottom.`,
+        // A tap reads the card. You cannot decide whether to keep a hand you cannot
+        // read, and at seven-across these faces are thumbnails — so the decision is
+        // made from the enlarged view, where the rules text actually is.
+        onTap: () => {
+          const toggle = (): void => {
+            if (chosen) marked.splice(at, 1);
+            else {
+              // Full already: the oldest pick makes room, so a player can always change
+              // their mind by tapping the card they want rather than one they do not.
+              if (marked.length >= required) marked.shift();
+              marked.push(id);
+            }
+            sound.play('select');
+            paint();
+          };
+          showCard(host, state, id, required === 0 ? [] : [{
+            label: chosen ? 'Keep on top' : 'Put on the bottom',
+            aria: chosen
+              ? `Keep ${name} in your hand`
+              : `Put ${name} on the bottom of your library`,
+            run: toggle,
+            quiet: chosen,
+          }]);
         },
       }));
     }
@@ -434,7 +546,7 @@ function mulliganPanel(
  * and a state you reach by not acting is a state the player should still see named.
  */
 function scryPanel(
-  state: GameState, onDecide: (toBottom: CardId[]) => void,
+  host: HTMLElement, state: GameState, onDecide: (toBottom: CardId[]) => void,
 ): HTMLElement {
   const looked = state.pendingScry?.cards ?? [];
   const bottom = new Set<CardId>();
@@ -461,10 +573,21 @@ function scryPanel(
       top.addEventListener('click', () => { bottom.delete(id); sound.play('select'); paint(); });
       down.addEventListener('click', () => { bottom.add(id); sound.play('select'); paint(); });
 
-      row.append(el('div.scry', {},
-        el<HTMLImageElement>('img.scry__card', { src: def(state, id).image, alt: name }),
-        el('div.scry__buttons', {}, top, down),
-      ));
+      // The face reads the card; the two buttons stay as the fast path. A scry is a
+      // decision about cards you have never seen — at this width the art is a hint and
+      // the rules text is the answer.
+      const face = el<HTMLButtonElement>('button.scry__face', {
+        type: 'button', 'aria-label': `Read ${name}`,
+      }, el<HTMLImageElement>('img.scry__card', { src: def(state, id).image, alt: '' }));
+      face.addEventListener('click', ev => {
+        ev.stopPropagation();
+        showCard(host, state, id, [
+          { label: 'Keep on top', aria: `Keep ${name} on top`, run: () => { bottom.delete(id); sound.play('select'); paint(); } },
+          { label: 'To the bottom', aria: `Put ${name} on the bottom`, run: () => { bottom.add(id); sound.play('select'); paint(); }, quiet: true },
+        ]);
+      });
+
+      row.append(el('div.scry', {}, face, el('div.scry__buttons', {}, top, down)));
     }
 
     const down = bottom.size;
@@ -502,7 +625,7 @@ function scryPanel(
  * means something — this is a decision the attacker may decline to make.
  */
 function blockerOrderPanel(
-  state: GameState, attacker: CardId, onConfirm: (order: CardId[]) => void,
+  host: HTMLElement, state: GameState, attacker: CardId, onConfirm: (order: CardId[]) => void,
 ): HTMLElement {
   // Every id in `blockedBy` must appear in the order — including a blocker killed by a
   // trick in the window before damage, which `combat.ts` skips but legality still counts.
@@ -532,11 +655,23 @@ function blockerOrderPanel(
           ? `${name} is already gone, and takes no damage`
           : `${name}, ${powerOf(state, id)} over ${toughnessOf(state, id) - inst(state, id).damage}, `
             + `takes damage ${place} of ${order.length}. Tap to move it up the order.`,
+        // Reading comes first here too: which blocker you want dead depends on what
+        // they are, and these are art crops with no rules text on them.
         onTap: () => {
-          if (at >= 0) chosen.splice(at, 1);
-          else chosen.push(id);
-          sound.play('select');
-          paint();
+          const move = (): void => {
+            if (at >= 0) chosen.splice(at, 1);
+            else chosen.push(id);
+            sound.play('select');
+            paint();
+          };
+          showCard(host, state, id, gone ? [] : [{
+            label: at >= 0 ? 'Move back' : 'Take damage first',
+            aria: at >= 0
+              ? `Take ${name} out of the damage order`
+              : `Put ${name} next in the damage order`,
+            run: move,
+            quiet: at >= 0,
+          }]);
         },
       }));
     }
@@ -587,6 +722,8 @@ export interface PromptView {
   scry(state: GameState, onDecide: (toBottom: CardId[]) => void): void;
   /** The damage assignment order for one blocked attacker. */
   blockerOrder(state: GameState, attacker: CardId, onConfirm: (order: CardId[]) => void): void;
+  /** One card, as large as the screen allows, with whatever it affords. */
+  read(state: GameState, card: CardId, actions?: CardAction[]): void;
   /** The real lands, each one the engine will let you tap. */
   lands(state: GameState, player: PlayerId, onTap: (card: CardId) => void): void;
   /** Repaint whatever is open against fresh state. A no-op for a snapshot. */
@@ -597,16 +734,19 @@ export interface PromptView {
 export function createPrompts(host: HTMLElement): PromptView {
   return {
     mulligan(state, player, onKeep, onMulligan) {
-      open(host, mulliganPanel(state, player, onKeep, onMulligan), 'Your opening hand', 'never');
+      open(host, mulliganPanel(host, state, player, onKeep, onMulligan), 'Your opening hand', 'never');
     },
     scry(state, onDecide) {
-      open(host, scryPanel(state, onDecide), 'Scry: top or bottom', 'never');
+      open(host, scryPanel(host, state, onDecide), 'Scry: top or bottom', 'never');
     },
     blockerOrder(state, attacker, onConfirm) {
-      open(host, blockerOrderPanel(state, attacker, onConfirm), 'Damage assignment order', 'never');
+      open(host, blockerOrderPanel(host, state, attacker, onConfirm), 'Damage assignment order', 'never');
+    },
+    read(state, card, actions = []) {
+      showCard(host, state, card, actions);
     },
     lands(state, player, onTap) {
-      const { body, paint, label } = landsPanel(state, player, onTap);
+      const { body, paint, label } = landsPanel(host, state, player, onTap);
       open(host, body, label, 'backdrop');
       repaint = paint;
     },
@@ -618,6 +758,7 @@ export function createPrompts(host: HTMLElement): PromptView {
 }
 
 export function closeOverlay(): void {
+  closeReader();
   close();
 }
 

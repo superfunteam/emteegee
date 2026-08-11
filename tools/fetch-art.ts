@@ -7,7 +7,7 @@
  *
  * Two images per card:
  *   <id>-art.jpg    art_crop, 420px wide — the frameless tile on the battlefield
- *   <id>-card.jpg   normal,   320px wide — the real card, shown on tap
+ *   <id>-card.jpg   normal,   488px wide — the real card, shown on tap and read
  *
  * Usage:  npm run art            download anything missing
  *         npm run art -- --force re-download everything
@@ -28,7 +28,15 @@ const ART_DIR = resolve(HERE, '../public/art');
 const USER_AGENT = 'emteegee/0.1 (open-source beginner MTG demo)';
 const CONCURRENCY = 6;
 
-const WIDTHS = { art: 420, card: 320 } as const;
+/*
+ * The card face is NOT downscaled below Scryfall's `normal`, which is 488px wide.
+ *
+ * It used to be capped at 320, which `sips -Z` applies to the longest side — so a
+ * portrait card came out 229px across and the reader was upscaling it by a third. Rules
+ * text at that resolution is a smudge, and rules text is the entire reason a beginner
+ * opens a card. The art crop stays small: it is a 74px tile that is never read.
+ */
+const WIDTHS = { art: 420, card: 488 } as const;
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

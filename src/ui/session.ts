@@ -22,7 +22,7 @@ import { speechFor } from '../bot/personality';
 import { Animator } from './animator';
 import { sound } from '../audio/kit';
 import type { TableView, UiState } from './table';
-import type { PromptView } from './overlay';
+import type { CardAction, PromptView } from './overlay';
 import { hintFor } from './hints';
 
 export const YOU: PlayerId = 0;
@@ -82,14 +82,20 @@ export class Session {
 
   /* ------------------------------------------------------------- intents */
 
-  /** A card in hand. Casts it, or enters targeting if it needs a target. */
+  /**
+   * A card in hand: read it first, then decide.
+   *
+   * Tapping used to cast immediately, which meant the only way to find out what a card
+   * did was to play it — backwards for the audience this game is for, and a misfire
+   * waiting to happen at seventy pixels across. The enlarged view carries the cast
+   * button, so the sequence is look, then commit, and it costs one extra tap on the
+   * most common action in the game. That trade is the right way round here.
+   */
   handTap(card: CardId): void {
     if (this.blocked()) return;
     sound.unlock();
 
-    // Tapping the card you are already aiming means "never mind". Restarting
-    // targeting instead would leave the only exit as a separate Cancel button, and a
-    // player who taps the card again expects to put it back down.
+    // Mid-targeting, a tap on the card being aimed means "never mind".
     if (this.mode.kind === 'targeting') {
       const sameCard = this.mode.card === card;
       this.mode = { kind: 'idle' };
@@ -103,23 +109,35 @@ export class Session {
       a => (a.kind === 'castSpell' || a.kind === 'playLand') && a.card === card,
     );
 
-    if (!options.length) {
-      sound.play('illegal', { gain: 0.5 });
-      this.flashWhyNot(card);
-      return;
-    }
+    const d = def(this.state, card);
+    const isLand = d.cardTypes.includes('land');
+    const actions: CardAction[] = [];
 
-    // One legal way to play it means no decision to present.
     if (options.length === 1) {
-      void this.dispatch(options[0]!);
-      return;
+      actions.push({
+        label: isLand ? 'Play land' : 'Cast it',
+        aria: isLand ? `Play ${d.name}` : `Cast ${d.name}`,
+        run: () => void this.dispatch(options[0]!),
+      });
+    } else if (options.length > 1) {
+      // Several legal targets: reading comes first, then the player points at one.
+      actions.push({
+        label: 'Choose a target',
+        aria: `Cast ${d.name} and choose what it points at`,
+        run: () => {
+          this.mode = { kind: 'targeting', card, chosen: [] };
+          this.hint = hintFor('targeting');
+          sound.play('select');
+          this.render();
+        },
+      });
     }
 
-    // Several legal targets: let the player point at one.
-    this.mode = { kind: 'targeting', card, chosen: [] };
-    this.hint = hintFor('targeting');
-    sound.play('select');
-    this.render();
+    this.prompts.read(this.state, card, actions);
+
+    // An unplayable card still opens — you should be able to read what you cannot yet
+    // cast — but the reason it is unplayable is worth saying out loud.
+    if (options.length === 0) this.flashWhyNot(card);
   }
 
   /** A permanent on the battlefield. Meaning depends on what is happening. */

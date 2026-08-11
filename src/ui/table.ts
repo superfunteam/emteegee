@@ -145,7 +145,7 @@ export function createTable(callbacks: TableCallbacks): TableView {
     sizeTiles(oppBoard);
     sizeTiles(youBoard);
     patchMid(mid, state, ui.you, callbacks);
-    patchStack(stack, state, ui.you);
+    patchStack(stack, state, ui.you, card => callbacks.onTileTap(card));
     patchHand(hand, state, ui, handCards, actions, callbacks);
     patchBacks(backs, state, them);
 

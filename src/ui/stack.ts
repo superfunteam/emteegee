@@ -61,7 +61,12 @@ function artFor(state: GameState, source: CardId): string {
  * from how it was built, and showing it in build order would teach the wrong thing at
  * exactly the moment the player is trying to learn it.
  */
-export function patchStack(node: HTMLElement, state: GameState, you: PlayerId): void {
+export function patchStack(
+  node: HTMLElement,
+  state: GameState,
+  you: PlayerId,
+  onRead?: (card: CardId) => void,
+): void {
   const objects = state.stack;
 
   if (objects.length === 0) {
@@ -91,8 +96,10 @@ export function patchStack(node: HTMLElement, state: GameState, you: PlayerId): 
     const mine = object.controller === you;
     const target = describeTarget(state, object, you);
 
-    const row = el('div.stack__item', {
+    const row = el<HTMLButtonElement>('button.stack__item', {
+      type: 'button',
       dataOwner: mine ? 'you' : 'them',
+      'aria-label': `Read ${describe(state, object)}`,
     },
       el<HTMLImageElement>('img.stack__art', { src: artFor(state, object.source), alt: '' }),
       el('div.stack__body', {},
@@ -107,6 +114,9 @@ export function patchStack(node: HTMLElement, state: GameState, you: PlayerId): 
     );
 
     if (next) row.classList.add('stack__item--next');
+    // The thing about to happen to you is the thing you most need to read.
+    if (onRead) row.addEventListener('click', () => onRead(object.source));
+    else row.disabled = true;
     node.append(row);
   }
 
