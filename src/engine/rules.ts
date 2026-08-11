@@ -57,7 +57,7 @@ import type {
   TargetFilter,
   TargetSelection,
 } from './types';
-import { assertNever, PHASE_ORDER } from './types';
+import { assertNever, PHASE_ORDER, STARTING_HAND } from './types';
 import {
   cloneState,
   hasKeyword,
@@ -68,11 +68,12 @@ import {
   payMana,
   toughnessOf,
 } from './state';
-import { isLegal, legalActions } from './actions';
+import { isLegal, legalActions, MULLIGAN_TURN } from './actions';
 import { applyEffect, applyEffects } from './effects';
 import { declareAttackers, declareBlockers, resolveDamageStep } from './combat';
+import { makeRng, shuffle, type Rng } from './rng';
 import { fireTriggers, notifyEnteredBattlefield, triggerSourceOf, triggersOfDef } from './triggers';
-import { evCast, evPhase, evPlay, evResolve, evUntap, evWin, evZoneChange } from './events';
+import { evCast, evPhase, evPlay, evResolve, evTap, evUntap, evWin, evZoneChange } from './events';
 
 /** Every mana symbol that can appear in a cost. */
 const MANA_KEYS = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
@@ -119,8 +120,15 @@ const SBA_LIMIT = 100;
  * The active player, except at `declareBlockers`: blocks are the defender's
  * decision, and `actions.ts` only enumerates them for the defender, so the
  * defender is the one who must be holding priority when that phase opens.
+ *
+ * A pending scry outranks the phase entirely. The cards are already off the top
+ * of the library and the game cannot go anywhere until their controller says
+ * where they belong, so they hold priority until they do — which is what makes
+ * "nothing else may happen" true for every path into this function rather than
+ * only for the resolution that set the scry up.
  */
 function defaultPriority(state: GameState): PlayerId {
+  if (state.pendingScry) return state.pendingScry.player;
   return state.phase === 'declareBlockers' ? opponentOf(state.active) : state.active;
 }
 
@@ -148,6 +156,13 @@ function isNoOp(action: Action): boolean {
       return action.attackers.length === 0;
     case 'declareBlockers':
       return action.blocks.length === 0;
+    // Tapping a land for mana you have not decided to spend is not a decision the
+    // game is waiting on — it is a convenience offered in every phase to anyone
+    // holding an untapped land. Counting it as a real choice would stop the game at
+    // untap, upkeep, draw, and end of every turn from the second land onward, which
+    // is the entire class of empty stop spec §9.4 exists to remove.
+    case 'tapLand':
+      return true;
     default:
       return false;
   }
@@ -751,6 +766,234 @@ function afterDeclaration(declared: ReduceResult): ReduceResult {
   };
 }
 
+// ---------------------------------------------------------------------------
+// The opening hand
+// ---------------------------------------------------------------------------
+
+/**
+ * Put a freshly dealt game into its mulligan step.
+ *
+ * `createGame` deals two opening hands and stops at the first main phase, which
+ * is a playable game and is what every test and every bot search starts from.
+ * This is the one extra move a real match makes first: it winds the clock back
+ * to turn zero — the pre-game, see `MULLIGAN_TURN` in `actions.ts` — and hands
+ * the human the decision. Player 0 answers, then player 1, and the second keep
+ * starts turn one.
+ *
+ * Silent, because nothing has happened yet: the cards were dealt by
+ * `createGame`, and the `PHASE` event announcing turn one comes out of the keep
+ * that starts it.
+ */
+export function beginMulligans(state: GameState): ReduceResult {
+  const next = cloneState(state);
+  next.turn = MULLIGAN_TURN;
+  next.phase = 'main1';
+  next.active = 0;
+  next.priority = 0;
+  return { state: next, events: [] };
+}
+
+/**
+ * The next seed in the stream.
+ *
+ * `state.rngSeed` is both the seed of the game and the position in it: a
+ * mulligan advances it, so the second seven is a different seven and the same
+ * `rngSeed` still reproduces the same game exactly. Leaving it fixed would
+ * reshuffle to the identical order every time and hand the player back the hand
+ * they just rejected.
+ */
+function advanceSeed(rng: Rng): number {
+  return Math.floor(rng() * 0x1_0000_0000) >>> 0;
+}
+
+/**
+ * Mulligan: the hand goes back, the library is shuffled, and seven more come
+ * off the top.
+ *
+ * London, per spec §3 — you always draw a full seven and pay for it when you
+ * keep, rather than drawing one fewer each time. The count is what the keep
+ * later charges, and `legalActions` stops offering this at
+ * `MAX_MULLIGANS`.
+ *
+ * Priority does not move: the same player looks at the new hand and decides
+ * again.
+ */
+function mulligan(state: GameState): ReduceResult {
+  const player = state.priority;
+  let next = cloneState(state);
+  const events: GameEvent[] = [];
+
+  for (const id of [...next.players[player].hand]) {
+    next = move(next, id, 'hand', 'library');
+    events.push(evZoneChange(id, 'hand', 'library'));
+  }
+
+  const rng = makeRng(next.rngSeed);
+  next.players[player].library = shuffle(next.players[player].library, rng);
+  next.rngSeed = advanceSeed(rng);
+
+  const drawn = applyEffect(
+    next,
+    { kind: 'draw', player: 'you', count: STARTING_HAND },
+    TURN_BASED,
+    player,
+    null,
+  );
+  next = drawn.state;
+  events.push(...drawn.events);
+
+  next.players[player].mulligansTaken += 1;
+  return { state: next, events };
+}
+
+/**
+ * Keep: put back one card for each mulligan taken, on the bottom of the
+ * library, in the order the player listed them.
+ *
+ * The bottom is the end of the array — index 0 is the top — so `move` already
+ * puts them exactly where they belong.
+ *
+ * Then the decision passes: the human answers first, the Magician second, and
+ * the second keep is what starts turn one. The game opens at `main1` with
+ * player 0 active, which is the position `createGame` describes and the reason
+ * player 0 skips a draw step they have already passed.
+ */
+function keepHand(state: GameState, toBottom: CardId[]): ReduceResult {
+  const player = state.priority;
+  let next = cloneState(state);
+  const events: GameEvent[] = [];
+
+  for (const id of toBottom) {
+    next = move(next, id, 'hand', 'library');
+    events.push(evZoneChange(id, 'hand', 'library'));
+  }
+
+  if (player === 0) {
+    next.priority = 1;
+    return { state: next, events };
+  }
+
+  next.turn = 1;
+  next.phase = 'main1';
+  next.active = 0;
+  next.priority = 0;
+  events.push(evPhase(next.phase, next.active, next.turn));
+  return { state: next, events };
+}
+
+// ---------------------------------------------------------------------------
+// Scry
+// ---------------------------------------------------------------------------
+
+/**
+ * Answer the scry: the chosen cards go to the bottom in the order they were
+ * chosen, everything else stays on top in the order it was already in.
+ *
+ * `effects.ts` parks the cards on `state.pendingScry` rather than asking a
+ * question mid-resolution, and this is the other half of that bargain — the
+ * only thing that clears it, and the only thing `legalActions` will offer while
+ * it is set.
+ *
+ * Silent: `SCRY` was emitted when the cards came off the top, and the decision
+ * moves nothing between zones that the animator could show.
+ */
+function scryDecision(state: GameState, toBottom: CardId[]): ReduceResult {
+  const pending = state.pendingScry;
+  if (!pending) throw new Error('scryDecision: no scry is waiting on a decision');
+
+  const next = cloneState(state);
+  const looked = pending.cards;
+  const library = next.players[pending.player].library;
+
+  const kept = looked.filter((id) => !toBottom.includes(id));
+  const rest = library.filter((id) => !looked.includes(id));
+  next.players[pending.player].library = [...kept, ...rest, ...toBottom];
+
+  next.pendingScry = null;
+  next.priority = defaultPriority(next);
+  return { state: next, events: [] };
+}
+
+// ---------------------------------------------------------------------------
+// Mana
+// ---------------------------------------------------------------------------
+
+/**
+ * Tap a land yourself and float what it makes.
+ *
+ * Spec §9.3: casting auto-taps, and long-pressing the mana row lets a player do
+ * it by hand. The float is real mana in `PlayerState.manaPool`, and `payMana`
+ * already spends the pool before it taps anything — floating mana and then
+ * casting taps no second land, which is the only thing that makes this worth
+ * offering at all.
+ *
+ * A land that could make more than one color would need a choice the `Action`
+ * union has nowhere to put, so the first color it lists is the one produced. No
+ * card in the pool has a second one: spec §3 puts mana abilities beyond basic
+ * lands out of scope.
+ *
+ * Priority deliberately does not move. Every other action here hands it back to
+ * the phase's default holder, but the entire point of floating mana is to spend
+ * it, and a player who lost priority the moment they tapped could never cast
+ * the spell they tapped for.
+ */
+function tapLand(state: GameState, card: CardId): ReduceResult {
+  const instance = inst(state, card);
+  const player = instance.controller;
+  const produces = state.defs[instance.oracleId]?.producesMana;
+  if (!produces || produces.length === 0) {
+    throw new Error(`tapLand: "${card}" produces no mana`);
+  }
+
+  const next = cloneState(state);
+  next.cards[card]!.tapped = true;
+  const pool = next.players[player].manaPool;
+  const color = produces[0]!;
+  pool[color] = (pool[color] ?? 0) + 1;
+
+  return { state: next, events: [evTap(card)] };
+}
+
+// ---------------------------------------------------------------------------
+// Blocker ordering
+// ---------------------------------------------------------------------------
+
+/**
+ * Set the order an attacker assigns its damage in.
+ *
+ * `combat.ts` walks `blockedBy` and gives each blocker lethal before moving on,
+ * so this list is the whole of the decision: which creature the attacker is
+ * willing to trade with, and which one it merely bumps into.
+ *
+ * Priority passes to the defender, and that is load-bearing rather than
+ * cosmetic. `validateBlockerOrder` only accepts an order from a player who
+ * holds priority *and* is the active player, so handing it over is what makes
+ * the ordering a decision made once. Without it the position after ordering
+ * offers ordering again, and anything maximising an evaluation that reordering
+ * does not change — which is every evaluation, since the board is identical —
+ * would sit there rearranging blockers until the tab died.
+ */
+function orderBlockers(state: GameState, attacker: CardId, order: CardId[]): ReduceResult {
+  const next = cloneState(state);
+  next.cards[attacker]!.blockedBy = [...order];
+  next.priority = opponentOf(next.active);
+  return { state: next, events: [] };
+}
+
+/**
+ * The defender's window after an order is set: kept when they have something to
+ * do with it, skipped when they do not.
+ *
+ * Same rule as everywhere else (spec §9.4) — a stop where advancing is the only
+ * legal move is not a stop. With no trick to cast, ordering blockers runs
+ * straight into the damage it was deciding.
+ */
+function afterOrdering(ordered: ReduceResult): ReduceResult {
+  if (hasRealChoice(ordered.state, ordered.state.priority)) return ordered;
+  const advanced = advancePhase(ordered.state);
+  return { state: advanced.state, events: [...ordered.events, ...advanced.events] };
+}
+
 function dispatch(state: GameState, action: Action): ReduceResult {
   switch (action.kind) {
     case 'pass':
@@ -765,17 +1008,16 @@ function dispatch(state: GameState, action: Action): ReduceResult {
       return afterDeclaration(declareAttackers(state, action.attackers));
     case 'declareBlockers':
       return afterDeclaration(declareBlockers(state, action.blocks));
-
-    // Enumerated by `types.ts` but not by `legalActions`, so `isLegal` has
-    // already rejected them and this is unreachable. It exists so the switch
-    // stays exhaustive: the day `actions.ts` starts offering one of these, the
-    // engine says so instead of silently doing nothing.
     case 'orderBlockers':
+      return afterOrdering(orderBlockers(state, action.attacker, action.order));
     case 'scryDecision':
+      return scryDecision(state, action.toBottom);
     case 'mulligan':
+      return mulligan(state);
     case 'keepHand':
+      return keepHand(state, action.toBottom);
     case 'tapLand':
-      throw new Error(`reduce: "${action.kind}" is not enumerated by legalActions and has no handler`);
+      return tapLand(state, action.card);
 
     default:
       return assertNever(action, 'reduce');

@@ -11,19 +11,36 @@
  *
  * 1. **Pure.** Nothing here reads a clock, a DOM, or `Math.random`, and no input
  *    state is ever mutated — every function only reads.
- * 2. **Complete.** Every action a player could legally take right now appears in
- *    the list, including the combat declarations. That is what lets `isLegal` be
- *    a membership test rather than a parallel rulebook.
+ * 2. **Complete, except where completeness is exponential.** Every action a
+ *    player could take appears in the list — with the deliberate exceptions below.
  * 3. **Sound.** Anything enumerated really is legal, targets included. A spell
  *    that needs a target it cannot legally choose is not offered at all, so the
  *    UI never has to explain a dead end after the fact.
  *
- * Completeness costs something in combat: the attacker declaration is the power
- * set of the eligible attackers, and the blocker declaration is every assignment
- * of blockers to attackers they may legally block. Both are exponential in the
- * board size by nature — there is no smaller complete answer — so callers with a
- * time budget (the Archmage tier) own their own cutoff. The game's boards are
- * small enough that this is measured in microseconds.
+ * ## The combat exception
+ *
+ * Combat declarations are set-valued. Enumerating every one of them is 2^n for
+ * attackers and (1 + attackers)^blockers for blocks — eight against eight is
+ * forty-three million assignments, walked on every call including from
+ * `advancePhase`. The game would freeze exactly when the board got interesting.
+ *
+ * So for those two alone, legality is a **predicate** rather than a list:
+ * {@link validateAttack} and {@link validateBlocks} are the definition, `isLegal`
+ * consults them directly, and `legalActions` offers a bounded set of useful
+ * candidates instead. The empty and all-in attack are always among them, so a bot
+ * sampling candidates can never miss lethal; menace-satisfying pairs are always
+ * among the blocks, or nothing could ever block a menace creature.
+ *
+ * ## The same exception, three more times
+ *
+ * Every other list-valued decision in the game is shaped identically — a London
+ * keep is any N of seven in any order, a scry is any subset of what was looked
+ * at, a damage assignment order is any permutation of the blockers — so each one
+ * follows the same pattern rather than inventing a second one:
+ * {@link validateKeepHand}, {@link validateScry} and {@link validateBlockerOrder}
+ * are the definitions, `isLegal` consults them, and the generator offers a
+ * bounded candidate list wide enough that a bot picking only from it still plays
+ * sensibly and every card in hand can be reached by some offered move.
  */
 
 import type {
@@ -42,7 +59,7 @@ import type {
   TargetSelection,
   Zone,
 } from './types';
-import { STACK_CAP } from './types';
+import { MAX_MULLIGANS, STACK_CAP } from './types';
 import { canPay, cantBlock, cardsIn, hasKeyword, inst, isCreature, opponentOf, powerOf } from './state';
 
 /** Every mana symbol that can appear in a cost. */
@@ -690,6 +707,337 @@ export function validateBlocks(state: GameState, blocks: readonly BlockAssignmen
 }
 
 // ---------------------------------------------------------------------------
+// Blocker ordering
+// ---------------------------------------------------------------------------
+
+/**
+ * How many orderings of one attacker's blockers the generator will offer.
+ *
+ * Four blockers is 24 orderings, which is every one of them; five is 120, and a
+ * list that long is a list nobody is reading on a phone anyway. Past four this
+ * degrades to a spread — the declaration order, its reverse, and each blocker
+ * pulled to the front — for the same reason the combat declarations do:
+ * {@link validateBlockerOrder} is the definition of legal, and these are
+ * candidates.
+ */
+const MAX_BLOCKER_ORDERINGS = 24;
+
+/**
+ * The creatures blocking this attacker that are still in the fight.
+ *
+ * `blockedBy` can outlive the creatures in it — a blocker killed by a trick in
+ * the priority window before damage leaves its id behind, and `combat.ts` skips
+ * it when it assigns. Ordering a list with one live blocker in it decides
+ * nothing, so this is what "blocked by two or more" is measured against.
+ */
+function liveBlockers(state: GameState, attacker: CardId): CardId[] {
+  const card = state.cards[attacker];
+  if (!card) return [];
+  return card.blockedBy.filter((id) => {
+    const blocker = state.cards[id];
+    return blocker !== undefined && blocker.zone === 'battlefield' && blocker.blocking === attacker;
+  });
+}
+
+/** Is this attacker blocked by enough creatures for the order to change anything? */
+function needsOrdering(state: GameState, attacker: CardId): boolean {
+  const card = state.cards[attacker];
+  if (!card || !card.attacking) return false;
+  return liveBlockers(state, attacker).length >= 2;
+}
+
+/** Every ordering of a short list. */
+function permutations(list: readonly CardId[]): CardId[][] {
+  if (list.length <= 1) return [[...list]];
+  const out: CardId[][] = [];
+  for (let i = 0; i < list.length; i++) {
+    const rest = [...list.slice(0, i), ...list.slice(i + 1)];
+    for (const tail of permutations(rest)) out.push([list[i]!, ...tail]);
+  }
+  return out;
+}
+
+/** Removes duplicate sequences, comparing order-sensitively. */
+function dedupeSequences(sequences: CardId[][]): CardId[][] {
+  const seen = new Set<string>();
+  const out: CardId[][] = [];
+  for (const sequence of sequences) {
+    const key = sequence.join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(sequence);
+  }
+  return out;
+}
+
+/**
+ * The orderings offered for one attacker, always including the order the blocks
+ * were declared in — "leave it as it is" has to be a move the attacking player
+ * can actually make, because making it is what passes the decision along.
+ */
+function orderCandidates(blockers: readonly CardId[]): CardId[][] {
+  if (permutationCount(blockers.length) <= MAX_BLOCKER_ORDERINGS) {
+    return dedupeSequences(permutations(blockers));
+  }
+  const out: CardId[][] = [[...blockers], [...blockers].reverse()];
+  for (const id of blockers) out.push([id, ...blockers.filter((other) => other !== id)]);
+  return dedupeSequences(out);
+}
+
+function permutationCount(n: number): number {
+  let total = 1;
+  for (let i = 2; i <= n; i++) total *= i;
+  return total;
+}
+
+/**
+ * Is this a legal damage assignment order? `null` when it is, the reason when
+ * it is not.
+ *
+ * Three things make it legal, and the third is the one that stops the game from
+ * looping. Ordering is offered in the step before damage, to the attacking
+ * player, *while they hold priority* — and applying an order hands priority to
+ * the defender (see `rules.ts`). So each attack is ordered once and the engine
+ * cannot be walked back and forth between two arrangements forever, which is
+ * exactly what a bot maximising an unchanged evaluation would otherwise do.
+ *
+ * Like the combat declarations, this is a predicate rather than membership in a
+ * list: `legalActions` offers a bounded set of orderings and this is what
+ * `isLegal` actually consults, so a player dragging blockers into any order at
+ * all is answered correctly.
+ */
+export function validateBlockerOrder(
+  state: GameState,
+  attacker: CardId,
+  order: readonly CardId[],
+): string | null {
+  if (state.winner !== null) return 'the game is over';
+  if (state.phase !== 'firstStrikeDamage') return 'blockers are ordered in the step before damage';
+  if (state.priority !== state.active) return 'only the attacking player orders blockers, and only once';
+
+  const card = state.cards[attacker];
+  if (!card) return `${attacker} does not exist`;
+  if (card.controller !== state.active) return `${attacker} is not yours to order`;
+  if (!needsOrdering(state, attacker)) return `${attacker} is not blocked by two or more creatures`;
+
+  if (order.length !== card.blockedBy.length) return 'an order must list every blocker exactly once';
+  const seen = new Set<CardId>();
+  for (const id of order) {
+    if (seen.has(id)) return `${id} is listed twice`;
+    seen.add(id);
+    if (!card.blockedBy.includes(id)) return `${id} is not blocking ${attacker}`;
+  }
+  return null;
+}
+
+/**
+ * The ordering decisions the attacking player owes right now.
+ *
+ * Nothing at all in the common case: one blocker on an attacker has no order to
+ * choose, and spec §9.4 says a stop where advancing is the only move is a stop
+ * that does not happen. Two or more, and the attacker gets to say which one
+ * takes lethal first — which is the difference between trading with the 1/1 and
+ * trading with the 4/4.
+ */
+function orderActions(state: GameState, player: PlayerId): Action[] {
+  if (state.phase !== 'firstStrikeDamage') return [];
+  if (player !== state.active) return [];
+
+  const out: Action[] = [];
+  for (const attacker of state.players[player].battlefield) {
+    if (!needsOrdering(state, attacker)) continue;
+    for (const order of orderCandidates(inst(state, attacker).blockedBy)) {
+      out.push({ kind: 'orderBlockers', attacker, order });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// The opening hand
+// ---------------------------------------------------------------------------
+
+/**
+ * The turn a game sits on while both players decide their opening hands.
+ *
+ * The mulligan happens before turn one, and "before turn one" is a number
+ * `GameState.turn` can already hold. Spelling it as a new `Phase` member would
+ * have been the other option and a worse one: `PHASE_ORDER` is the turn cycle
+ * that `advancePhase` walks and wraps around, so a `'mulligan'` in it would come
+ * back every single turn, and a `'mulligan'` deliberately left out of it would
+ * make `PHASE_ORDER` stop being the list of phases. Turn zero is the pre-game,
+ * it is unreachable from `advancePhase` (which only ever increments), and it
+ * costs the type contract nothing.
+ *
+ * Whose decision it is, is `state.priority` — the field that already means
+ * exactly that. The human decides first (spec §3 puts them on the play), so
+ * priority walks 0, then 1, and the game begins when the second player keeps.
+ */
+export const MULLIGAN_TURN = 0;
+
+/** Is the game still in the pre-game mulligan step? */
+export function inMulligan(state: GameState): boolean {
+  return state.turn === MULLIGAN_TURN;
+}
+
+/** How many cards a keep has to put on the bottom right now. */
+function bottomCount(state: GameState, player: PlayerId): number {
+  return Math.min(state.players[player].mulligansTaken, state.players[player].hand.length);
+}
+
+/**
+ * Candidate keeps — NOT every combination.
+ *
+ * A London keep after two mulligans is any two of seven in any order, and the
+ * general shape is exponential in the hand for the same reason a block
+ * assignment is. `validateKeepHand` is the definition of legal, so this is a
+ * useful bounded set: the cards held longest, the cards drawn last, and each
+ * single card paired with enough others to make up the count — which is what
+ * makes "put *that* one back" reachable from the list for every card in hand.
+ */
+function keepCandidates(state: GameState, player: PlayerId): CardId[][] {
+  const hand = state.players[player].hand;
+  const count = bottomCount(state, player);
+  if (count === 0) return [[]];
+
+  const sets: CardId[][] = [hand.slice(0, count), hand.slice(hand.length - count)];
+  for (const card of hand) {
+    sets.push([card, ...hand.filter((other) => other !== card).slice(0, count - 1)]);
+  }
+  return dedupeSequences(sets.filter((set) => set.length === count));
+}
+
+/**
+ * Is this a legal keep? `null` when it is, the reason when it is not.
+ *
+ * London: you always draw seven and put back as many as you have mulliganed. A
+ * keep is therefore not a choice of *how many* — only of which.
+ */
+export function validateKeepHand(state: GameState, toBottom: readonly CardId[]): string | null {
+  if (state.winner !== null) return 'the game is over';
+  if (!inMulligan(state)) return 'the opening hands have already been kept';
+
+  const player = state.priority;
+  const hand = state.players[player].hand;
+  const required = bottomCount(state, player);
+  if (toBottom.length !== required) {
+    return `a London keep puts exactly ${required} card${required === 1 ? '' : 's'} on the bottom`;
+  }
+
+  const seen = new Set<CardId>();
+  for (const id of toBottom) {
+    if (seen.has(id)) return `${id} is listed twice`;
+    seen.add(id);
+    if (!hand.includes(id)) return `${id} is not in hand`;
+  }
+  return null;
+}
+
+/**
+ * The two moves a player has before the game starts: take another seven, or
+ * keep these and pay for the ones already taken.
+ *
+ * `pass` is deliberately absent. There is no advancing past this: the game does
+ * not start until both hands are settled, and an opening hand nobody decided on
+ * is not a state the engine can be in.
+ */
+function mulliganActions(state: GameState, player: PlayerId): Action[] {
+  const out: Action[] = [];
+  if (state.players[player].mulligansTaken < MAX_MULLIGANS) out.push({ kind: 'mulligan' });
+  for (const toBottom of keepCandidates(state, player)) out.push({ kind: 'keepHand', toBottom });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Scry
+// ---------------------------------------------------------------------------
+
+/**
+ * Candidate scry decisions: all of it to the bottom, none of it, and each card
+ * on its own.
+ *
+ * The full space is every subset in every order, and a scry 2 is small enough
+ * that this covers all of it anyway. `validateScry` is the definition of legal,
+ * so a player who wants some other split of a scry 3 gets it.
+ */
+function scryCandidates(cards: readonly CardId[]): CardId[][] {
+  const sets: CardId[][] = [[], [...cards]];
+  for (const id of cards) sets.push([id]);
+  return dedupeSequences(sets);
+}
+
+/**
+ * Is this a legal scry decision? `null` when it is, the reason when it is not.
+ *
+ * Only the cards actually looked at may be sent to the bottom, and none of them
+ * twice. The rest stay on top: a scry never reorders what it did not see.
+ */
+export function validateScry(state: GameState, toBottom: readonly CardId[]): string | null {
+  if (state.winner !== null) return 'the game is over';
+
+  const pending = state.pendingScry;
+  if (!pending) return 'no scry is waiting on a decision';
+  if (state.priority !== pending.player) return 'the scry is not yours to decide';
+
+  const seen = new Set<CardId>();
+  for (const id of toBottom) {
+    if (seen.has(id)) return `${id} is listed twice`;
+    seen.add(id);
+    if (!pending.cards.includes(id)) return `${id} is not one of the cards you are looking at`;
+  }
+  return null;
+}
+
+/**
+ * The scry decision, and nothing else at all.
+ *
+ * A scry is a question the game has already asked: the cards are off the top of
+ * the library and on `state.pendingScry`, and until their controller says where
+ * they go there is no coherent position to cast a spell into. So while one is
+ * pending this is the whole of what is legal — for the player who owes the
+ * decision, and, since the other player cannot make it for them, nothing at all
+ * for the other player.
+ */
+function scryActions(state: GameState, player: PlayerId): Action[] {
+  const pending = state.pendingScry;
+  if (!pending || pending.player !== player) return [];
+  return scryCandidates(pending.cards).map((toBottom) => ({ kind: 'scryDecision', toBottom }));
+}
+
+// ---------------------------------------------------------------------------
+// Mana
+// ---------------------------------------------------------------------------
+
+/** An untapped land of this player's that really does make mana. */
+function tappableForMana(state: GameState, card: CardId): boolean {
+  const instance = state.cards[card];
+  if (!instance || instance.tapped) return false;
+  const produces = state.defs[instance.oracleId]?.producesMana;
+  return produces !== undefined && produces.length > 0;
+}
+
+/**
+ * Tap a land for mana yourself.
+ *
+ * Casting auto-taps (spec §9.3) and almost nobody will ever use this, but the
+ * lands are on screen behind a long-press and a player who taps one expects
+ * mana. It is offered whenever the player holds priority, because floating mana
+ * is exactly the thing you do *before* deciding what to spend it on.
+ *
+ * `rules.ts` treats it as a non-decision for pacing purposes, and it has to:
+ * a stop is a phase where the player has a real choice, and "you control an
+ * untapped land" is true in nearly every phase of the game.
+ */
+function manaActions(state: GameState, player: PlayerId): Action[] {
+  const out: Action[] = [];
+  for (const card of state.players[player].battlefield) {
+    if (!tappableForMana(state, card)) continue;
+    out.push({ kind: 'tapLand', card });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // The generator
 // ---------------------------------------------------------------------------
 
@@ -700,18 +1048,28 @@ export function validateBlocks(state: GameState, blocks: readonly BlockAssignmen
  * to make. A full stack offers only `pass`: spec §3 caps the stack at three
  * objects, and the cap is a visible, explained rule rather than a silent
  * rejection, so the affordance disappears rather than misfiring.
+ *
+ * Two states answer the question with a single decision and nothing else, and
+ * both are checked before anything ordinary is enumerated: the pre-game
+ * mulligan, where the game has not started, and a pending scry, where the game
+ * has already asked something and is waiting to be told.
  */
 export function legalActions(state: GameState): Action[] {
   if (state.winner !== null) return [];
-  if (state.stack.length >= STACK_CAP) return [{ kind: 'pass' }];
 
   const player = state.priority;
+  if (inMulligan(state)) return mulliganActions(state, player);
+  if (state.pendingScry) return scryActions(state, player);
+  if (state.stack.length >= STACK_CAP) return [{ kind: 'pass' }];
+
   return [
     ...landActions(state, player),
     ...castActions(state, player),
     ...activateActions(state, player),
+    ...manaActions(state, player),
     ...attackActions(state, player),
     ...blockActions(state, player),
+    ...orderActions(state, player),
     { kind: 'pass' },
   ];
 }
@@ -753,6 +1111,16 @@ export function isLegal(state: GameState, action: Action): boolean {
   // `legalActions` still offers candidates; these validators are the definition.
   if (action.kind === 'declareAttackers') return validateAttack(state, action.attackers) === null;
   if (action.kind === 'declareBlockers') return validateBlocks(state, action.blocks) === null;
+
+  // The same problem in three more places. A keep is any N of seven, a scry is any
+  // subset of what was seen, and a damage assignment order is any permutation — all
+  // of them lists the player builds a piece at a time, and none of them a list the
+  // generator can hold in full.
+  if (action.kind === 'keepHand') return validateKeepHand(state, action.toBottom) === null;
+  if (action.kind === 'scryDecision') return validateScry(state, action.toBottom) === null;
+  if (action.kind === 'orderBlockers') {
+    return validateBlockerOrder(state, action.attacker, action.order) === null;
+  }
 
   return legalActions(state).some((candidate) => deepEqual(candidate, action));
 }
