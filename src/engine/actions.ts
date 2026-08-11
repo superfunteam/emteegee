@@ -541,6 +541,13 @@ function dedupeCardSets(sets: CardId[][]): CardId[][] {
  * the UI offers can never be one the engine throws on.
  */
 export function validateAttack(state: GameState, attackers: readonly CardId[]): string | null {
+  // The same two guards `legalActions` opens with. Without them `isLegal` accepts a
+  // combat declaration in a finished game or while a scry is unanswered — states the
+  // generator offers nothing in — and `reduce` performs it, because reduce trusts
+  // isLegal completely. A predicate that is the definition of legal has to carry every
+  // condition, not only the ones specific to combat.
+  if (state.winner !== null) return 'the game is over';
+  if (state.pendingScry) return 'a scry is waiting to be answered';
   if (state.phase !== 'declareAttackers') return 'not the declare attackers step';
   if (state.stack.length !== 0) return 'something is still on the stack';
 
@@ -680,6 +687,13 @@ function dedupeBlockSets(sets: BlockAssignment[][]): BlockAssignment[][] {
  * only way to express "blocked by two or more".
  */
 export function validateBlocks(state: GameState, blocks: readonly BlockAssignment[]): string | null {
+  // The same two guards `legalActions` opens with. Without them `isLegal` accepts a
+  // combat declaration in a finished game or while a scry is unanswered — states the
+  // generator offers nothing in — and `reduce` performs it, because reduce trusts
+  // isLegal completely. A predicate that is the definition of legal has to carry every
+  // condition, not only the ones specific to combat.
+  if (state.winner !== null) return 'the game is over';
+  if (state.pendingScry) return 'a scry is waiting to be answered';
   if (state.phase !== 'declareBlockers') return 'not the declare blockers step';
   if (state.stack.length !== 0) return 'something is still on the stack';
 
@@ -741,6 +755,7 @@ function liveBlockers(state: GameState, attacker: CardId): CardId[] {
 
 /** Is this attacker blocked by enough creatures for the order to change anything? */
 function needsOrdering(state: GameState, attacker: CardId): boolean {
+  if (state.cards[attacker]?.damageOrderChosen) return false;
   const card = state.cards[attacker];
   if (!card || !card.attacking) return false;
   return liveBlockers(state, attacker).length >= 2;

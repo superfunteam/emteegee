@@ -342,12 +342,21 @@ function relocate(state: GameState, ids: CardId[], to: Zone, dies: boolean): Red
  * An empty library does not throw and does not end the game here: it raises
  * `drewFromEmpty`, and the state-based action in `rules.ts` reads that flag. The
  * loss belongs with the other loss conditions, not scattered across effects.
+ *
+ * A library emptied only because a scry is holding its last cards is not an
+ * empty library. Every scry card in the pool draws in the same breath, so
+ * Preordain cast on a two-card library looks at both and then draws — and the
+ * card it draws is one of the two it is looking at. Taking it back off
+ * `pendingScry` is what keeps that a draw instead of a loss; leaving the flag to
+ * be raised would deck a player one turn early for casting a cantrip.
  */
 function draw(state: GameState, player: PlayerId, count: number): ReduceResult {
   let next = cloneState(state);
   const events: GameEvent[] = [];
 
   for (let i = 0; i < count; i++) {
+    if (next.players[player].library.length === 0) unparkOneScriedCard(next, player);
+
     const top = next.players[player].library[0];
     if (top === undefined) {
       next.players[player].drewFromEmpty = true;
@@ -357,6 +366,26 @@ function draw(state: GameState, player: PlayerId, count: number): ReduceResult {
     events.push(evDraw(player, top));
   }
   return { state: next, events };
+}
+
+/**
+ * Put the first card of a pending scry back on top of an empty library, so the
+ * draw that follows it in the same resolution has something to take.
+ *
+ * The scry keeps whatever is left. With nothing left it is over — a decision
+ * about no cards is not a decision, and leaving it pending would stop the game
+ * to ask a question with no answer.
+ *
+ * `owned` must be a state the caller may mutate.
+ */
+function unparkOneScriedCard(owned: GameState, player: PlayerId): void {
+  const pending = owned.pendingScry;
+  if (!pending || pending.player !== player || pending.cards.length === 0) return;
+
+  const returning = pending.cards[0]!;
+  owned.pendingScry = { player, cards: pending.cards.slice(1) };
+  if (owned.pendingScry.cards.length === 0) owned.pendingScry = null;
+  owned.players[player].library.unshift(returning);
 }
 
 /**
@@ -610,12 +639,31 @@ function createToken(
  * later as a `scryDecision` action. Parking the cards on `pendingScry` keeps the
  * engine a pure function of state and actions instead of something that has to
  * ask a question mid-resolution. An empty library has nothing to decide.
+ *
+ * The cards come **off** the library while the decision is pending, and
+ * `scryDecision` in `rules.ts` is what puts them back — kept ones on top,
+ * bottomed ones underneath. Leaving them in place instead is not a harmless
+ * shortcut: this engine keeps applying the rest of the spell's effects while the
+ * question is outstanding, and every scry card in the pool draws in the same
+ * breath ("Scry 1. Draw a card."). A draw off a library that still held the
+ * parked card put that card in hand *and* left `pendingScry` holding it, so the
+ * decision then re-inserted a card that was already in the player's hand — one
+ * physical card in two zones at once, which is how a library grows a duplicate
+ * and a battlefield ends up offering the same creature twice as an attacker.
+ *
+ * The cost of parking them properly is that a draw in the same resolution draws
+ * from *beneath* the cards being looked at. That is the closest this
+ * architecture gets to the real timing: a scry that sends a card to the bottom
+ * behaves exactly as Magic says, and one that keeps a card on top gets it a draw
+ * later than Magic would. Neither ever hands the player back the card they just
+ * rejected, which is the mistake worth avoiding.
  */
 function scry(state: GameState, controller: PlayerId, count: number): ReduceResult {
   const cards = state.players[controller].library.slice(0, count);
   const next = cloneState(state);
   if (cards.length === 0) return { state: next, events: [] };
 
+  next.players[controller].library = next.players[controller].library.slice(cards.length);
   next.pendingScry = { player: controller, cards };
   return { state: next, events: [evScry(controller, cards.length)] };
 }

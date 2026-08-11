@@ -254,6 +254,7 @@ function instanceOf(id: CardId, oracleId: OracleId, owner: PlayerId, zone: Zone)
     isToken: false,
     attacking: false,
     blockedBy: [],
+    damageOrderChosen: false,
   };
 }
 

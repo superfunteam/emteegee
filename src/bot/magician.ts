@@ -59,7 +59,7 @@
  * one ply is enough.
  */
 
-import type { Action, GameState, PlayerId } from '../engine/types';
+import type { Action, CardId, GameState, PlayerId } from '../engine/types';
 import { legalActions } from '../engine/actions';
 import { reduce } from '../engine/rules';
 import { makeRng } from '../engine/rng';
@@ -696,12 +696,57 @@ function chooseArchmage(state: GameState, me: PlayerId, candidates: readonly Act
  * The search is wrapped: any throw from the engine costs the bot its search, not
  * its turn. It plays a legal move regardless.
  */
+/**
+ * Keep or mulligan, decided by counting lands rather than by searching.
+ *
+ * Search gets this catastrophically wrong. The London cost is charged at `keepHand` —
+ * `mulligan` hands back a full seven while `keepHand` immediately bottoms N — so a
+ * one-ply evaluator, which prices a card in hand at 1.5, sees mulliganing as strictly
+ * free and keeping as strictly expensive. Left to the search, the Magician and the
+ * Archmage mulligan every game down to nothing.
+ *
+ * The real decision is not a board evaluation at all, it is a question about mana: a
+ * hand you cannot cast is a hand you did not keep. Two to five lands in seven is the
+ * ordinary keep range, tightening as the hand shrinks, and a last hand is always kept
+ * because the alternative is worse than any seven.
+ */
+function mulliganChoice(state: GameState, me: PlayerId, options: Action[]): Action | null {
+  const keeps = options.filter((a) => a.kind === 'keepHand');
+  if (keeps.length === 0) return null;
+
+  const hand = state.players[me].hand;
+  const lands = hand.filter((id) => {
+    const def = state.defs[state.cards[id]?.oracleId ?? ''];
+    return def?.cardTypes.includes('land') ?? false;
+  }).length;
+
+  const canMulligan = options.some((a) => a.kind === 'mulligan');
+  const kept = hand.length - state.players[me].mulligansTaken;
+
+  // A five-card hand beats no hand. The floor is what stops a bad run spiralling.
+  const keepable = kept <= 5 || (lands >= 2 && lands <= 5);
+  if (!keepable && canMulligan) return { kind: 'mulligan' };
+
+  // Bottom the most expensive cards: the ones least likely to be castable in a game
+  // this hand has already agreed to start a card down.
+  const best = keeps.reduce((a, b) =>
+    (a.kind === 'keepHand' && b.kind === 'keepHand' && costOf(state, b.toBottom) > costOf(state, a.toBottom) ? b : a));
+  return best;
+}
+
+function costOf(state: GameState, cards: readonly CardId[]): number {
+  return cards.reduce((n, id) => n + (state.defs[state.cards[id]?.oracleId ?? '']?.cmc ?? 0), 0);
+}
+
 export function chooseAction(state: GameState, tier: Tier): Action {
   const options = legalActions(state);
   if (options.length === 0) return { kind: 'pass' };
 
   try {
     const me = state.priority;
+
+    const opening = mulliganChoice(state, me, options);
+    if (opening !== null) return opening;
 
     const land = landDrop(state, me, options);
     if (land !== null) return land;

@@ -903,8 +903,14 @@ function keepHand(state: GameState, toBottom: CardId[]): ReduceResult {
  *
  * `effects.ts` parks the cards on `state.pendingScry` rather than asking a
  * question mid-resolution, and this is the other half of that bargain — the
- * only thing that clears it, and the only thing `legalActions` will offer while
- * it is set.
+ * only thing that clears it, the only thing `legalActions` will offer while it
+ * is set, and the only thing that puts the parked cards back into the library
+ * they were lifted out of.
+ *
+ * `rest` filters the looked-at cards out of the library defensively. They are
+ * not in it — `scry` took them off the top — but a state assembled by hand may
+ * still have them there, and reinserting a card the library already holds is
+ * exactly the duplication this pairing exists to avoid.
  *
  * Silent: `SCRY` was emitted when the cards came off the top, and the decision
  * moves nothing between zones that the animator could show.
@@ -988,7 +994,17 @@ function tapLand(state: GameState, card: CardId): ReduceResult {
 function orderBlockers(state: GameState, attacker: CardId, order: CardId[]): ReduceResult {
   const next = cloneState(state);
   next.cards[attacker]!.blockedBy = [...order];
-  next.priority = opponentOf(next.active);
+  next.cards[attacker]!.damageOrderChosen = true;
+
+  // Priority only leaves once every gang-blocked attacker has been ordered. The
+  // handoff used to be the "already decided" marker, which capped a whole combat at
+  // one ordered attacker: a second one blocked by two or more silently kept its
+  // declaration order. `damageOrderChosen` is that marker now, so the handoff can go
+  // back to meaning what it says.
+  const outstanding = legalActions(withPriority(next, next.active))
+    .some((a) => a.kind === 'orderBlockers');
+  if (!outstanding) next.priority = opponentOf(next.active);
+
   return { state: next, events: [] };
 }
 

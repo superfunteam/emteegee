@@ -502,3 +502,104 @@ describe('ordering blockers', () => {
     expect(JSON.stringify(state)).toBe(before);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Every gang-blocked attacker gets ordered, not just the first
+// ---------------------------------------------------------------------------
+
+/**
+ * Regression: `orderBlockers` handed priority to the defender unconditionally, and
+ * `validateBlockerOrder` requires `priority === active`. The handoff was doing double
+ * duty as the "already decided" marker, so ordering one attacker permanently killed
+ * the ordering decisions `legalActions` had enumerated for every other one — a second
+ * gang-blocked attacker silently kept its declaration order.
+ *
+ * `CardInstance.damageOrderChosen` is that marker now, which lets the handoff go back
+ * to meaning only what it says.
+ */
+describe('blocker ordering covers every gang-blocked attacker', () => {
+  function twoGangBlockedAttackers(): GameState {
+    const board = battlefield({
+      you: [{ power: 2, toughness: 5 }, { power: 2, toughness: 5 }],
+      them: [
+        { power: 1, toughness: 2 }, { power: 1, toughness: 2 },
+        { power: 1, toughness: 2 }, { power: 1, toughness: 2 },
+      ],
+    });
+    const attacked = reduce(board, { kind: 'declareAttackers', attackers: ['you0', 'you1'] }).state;
+    return reduce(attacked, {
+      kind: 'declareBlockers',
+      blocks: [
+        { blocker: 'them0', attacker: 'you0' }, { blocker: 'them1', attacker: 'you0' },
+        { blocker: 'them2', attacker: 'you1' }, { blocker: 'them3', attacker: 'you1' },
+      ],
+    }).state;
+  }
+
+  it('offers an ordering for both attackers', () => {
+    const state = twoGangBlockedAttackers();
+    const offered = new Set(legalActions(state)
+      .filter(a => a.kind === 'orderBlockers')
+      .map(a => (a.kind === 'orderBlockers' ? a.attacker : '')));
+    expect([...offered].sort()).toEqual(['you0', 'you1']);
+  });
+
+  it('still offers the second attacker after the first is ordered', () => {
+    const state = twoGangBlockedAttackers();
+    const after = reduce(state, {
+      kind: 'orderBlockers', attacker: 'you0', order: ['them1', 'them0'],
+    }).state;
+
+    const offered = new Set(legalActions(after)
+      .filter(a => a.kind === 'orderBlockers')
+      .map(a => (a.kind === 'orderBlockers' ? a.attacker : '')));
+    expect([...offered]).toEqual(['you1']);
+  });
+
+  it('does not offer the same attacker twice', () => {
+    const state = twoGangBlockedAttackers();
+    const after = reduce(state, {
+      kind: 'orderBlockers', attacker: 'you0', order: ['them1', 'them0'],
+    }).state;
+    expect(after.cards['you0']!.damageOrderChosen).toBe(true);
+    expect(legalActions(after).some(
+      a => a.kind === 'orderBlockers' && a.attacker === 'you0',
+    )).toBe(false);
+  });
+
+  it('keeps the decision with the attacker until every one is ordered', () => {
+    const state = twoGangBlockedAttackers();
+    const first = reduce(state, {
+      kind: 'orderBlockers', attacker: 'you0', order: ['them1', 'them0'],
+    }).state;
+
+    // One still outstanding, so it is still the attacking player's decision.
+    expect(first.priority).toBe(first.active);
+    expect(legalActions(first).some(a => a.kind === 'orderBlockers')).toBe(true);
+  });
+
+  it('assigns damage in the order chosen, for both attackers', () => {
+    // Each attacker is a 2/5 against two 1/2s: it has exactly enough for the first
+    // blocker in its order and nothing for the second. Which creature died is the
+    // only observable proof the order was honored, and it survives the combat
+    // resolving — unlike blockedBy, which is cleared when combat ends.
+    const state = twoGangBlockedAttackers();
+    const first = reduce(state, {
+      kind: 'orderBlockers', attacker: 'you0', order: ['them1', 'them0'],
+    }).state;
+    let after = reduce(first, {
+      kind: 'orderBlockers', attacker: 'you1', order: ['them3', 'them2'],
+    }).state;
+
+    for (let i = 0; i < 8 && after.cards['them1']!.zone === 'battlefield'; i++) {
+      const passing = legalActions(after).find(a => a.kind === 'pass');
+      if (!passing) break;
+      after = reduce(after, passing).state;
+    }
+
+    expect(after.cards['them1']!.zone).toBe('graveyard');
+    expect(after.cards['them0']!.zone).toBe('battlefield');
+    expect(after.cards['them3']!.zone).toBe('graveyard');
+    expect(after.cards['them2']!.zone).toBe('battlefield');
+  });
+});

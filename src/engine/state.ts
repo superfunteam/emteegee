@@ -83,6 +83,7 @@ function makeInstance(id: CardId, oracleId: OracleId, owner: PlayerId, zone: Zon
     isToken: false,
     attacking: false,
     blockedBy: [],
+    damageOrderChosen: false,
   };
 }
 
@@ -185,6 +186,7 @@ function cloneInstance(card: CardInstance): CardInstance {
     tempPump: { ...card.tempPump },
     tempKeywords: [...card.tempKeywords],
     blockedBy: [...card.blockedBy],
+    damageOrderChosen: card.damageOrderChosen,
     tokenSpec: card.tokenSpec
       ? {
           ...card.tokenSpec,
@@ -316,6 +318,7 @@ function resetOnLeavingBattlefield(card: CardInstance): void {
   card.attacking = false;
   card.blocking = undefined;
   card.blockedBy = [];
+  card.damageOrderChosen = false;
   card.attachedTo = undefined;
 }
 

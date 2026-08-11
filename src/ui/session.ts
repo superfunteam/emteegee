@@ -183,6 +183,14 @@ export class Session {
    * lands themselves are only tappable when `legalActions` says so.
    */
   manaTap(player: PlayerId): void {
+    // Deliberately not gated on priority — looking at what you have is not a move, and
+    // the lands themselves are only tappable when `legalActions` says so.
+    //
+    // It IS gated on a prompt, though. Prompts share the single overlay slot, so
+    // opening this panel while one is up tears the question out of the DOM and leaves
+    // a game waiting on an answer nobody can give. The overlay is not inert and the
+    // page is keyboard-playable, so this is reachable by tabbing behind the scrim.
+    if (this.prompt !== null) return;
     sound.unlock();
     this.prompts.lands(this.state, player, card => this.tapLand(card));
   }

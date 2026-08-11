@@ -451,15 +451,77 @@ describe('scry', () => {
     const r = applyEffect(s, { kind: 'scry', count: 2 }, 'src', 0, null);
 
     expect(r.state.pendingScry).toEqual({ player: 0, cards: top });
-    expect(r.state.players[0].library.slice(0, 2)).toEqual(top);
     expect(r.state.players[0].hand).toEqual(s.players[0].hand);
     expect(r.events).toEqual([{ type: 'SCRY', player: 0, count: 2 }]);
+  });
+
+  it('lifts the cards off the library until the decision puts them back', () => {
+    // Not a detail. Every scry card in the pool draws in the same breath —
+    // "Scry 1. Draw a card." — and `applyEffects` keeps going while the question
+    // is outstanding. Leaving the cards on top means that draw takes one of them
+    // into hand while `pendingScry` still holds it, and `scryDecision` then puts
+    // a card back into a library that no longer has any business holding it: one
+    // card in two zones at once.
+    const s = game();
+    const top = s.players[0].library.slice(0, 2);
+    const rest = s.players[0].library.slice(2);
+    const r = applyEffect(s, { kind: 'scry', count: 2 }, 'src', 0, null);
+
+    expect(r.state.players[0].library).toEqual(rest);
+    for (const id of top) expect(r.state.players[0].library).not.toContain(id);
+  });
+
+  it('draws from under the parked cards, so nothing is ever in two zones at once', () => {
+    const s = game();
+    const [first, second, third] = s.players[0].library;
+    const scried = applyEffect(s, { kind: 'scry', count: 2 }, 'src', 0, null).state;
+    const drawn = applyEffect(scried, { kind: 'draw', player: 'you', count: 1 }, 'src', 0, null).state;
+
+    // The card drawn is the one beneath what is being looked at, and neither of
+    // the parked cards has moved anywhere.
+    expect(drawn.players[0].hand).toContain(third);
+    expect(drawn.players[0].hand).not.toContain(first);
+    expect(drawn.players[0].hand).not.toContain(second);
+    expect(drawn.pendingScry).toEqual({ player: 0, cards: [first, second] });
+    expect(drawn.players[0].library).not.toContain(third);
   });
 
   it('does nothing on an empty library', () => {
     const r = applyEffect(gameWith({ library: [[], []] }), { kind: 'scry', count: 1 }, 'src', 0, null);
     expect(r.state.pendingScry).toBeNull();
     expect(r.events).toEqual([]);
+  });
+
+  it('hands a card back to a draw that would otherwise find the library empty', () => {
+    // Preordain on a two-card library: it looks at both, then draws — and what it
+    // draws is one of the two. Decking the player here would be an artifact of
+    // parking the cards, not a rule.
+    const s = gameWith({ library: [['a', 'b'], ['x']] });
+    const scried = applyEffect(s, { kind: 'scry', count: 2 }, 'src', 0, null).state;
+    expect(scried.players[0].library).toEqual([]);
+
+    const r = applyEffect(scried, { kind: 'draw', player: 'you', count: 1 }, 'src', 0, null);
+
+    expect(r.state.players[0].hand).toEqual(['a']);
+    expect(r.state.players[0].drewFromEmpty).toBe(false);
+    // The scry keeps what is left, and still has a decision to make about it.
+    expect(r.state.pendingScry).toEqual({ player: 0, cards: ['b'] });
+  });
+
+  it('ends the scry rather than leaving a decision about no cards', () => {
+    const s = gameWith({ library: [['a'], ['x']] });
+    const scried = applyEffect(s, { kind: 'scry', count: 1 }, 'src', 0, null).state;
+    const r = applyEffect(scried, { kind: 'draw', player: 'you', count: 1 }, 'src', 0, null);
+
+    expect(r.state.players[0].hand).toEqual(['a']);
+    expect(r.state.pendingScry).toBeNull();
+    expect(r.state.players[0].drewFromEmpty).toBe(false);
+  });
+
+  it('still decks a player whose library is genuinely gone', () => {
+    const s = gameWith({ library: [[], []] });
+    const r = applyEffect(s, { kind: 'draw', player: 'you', count: 1 }, 'src', 0, null);
+    expect(r.state.players[0].drewFromEmpty).toBe(true);
   });
 });
 

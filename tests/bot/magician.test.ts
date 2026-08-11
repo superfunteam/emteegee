@@ -597,3 +597,77 @@ describe('the Archmage answer does not depend on enumeration order', () => {
     expect(action.kind === 'declareAttackers' && action.attackers).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The opening hand
+// ---------------------------------------------------------------------------
+
+/**
+ * Regression: every tier mulliganed its way to nothing.
+ *
+ * The London cost is charged at `keepHand` — `mulligan` returns a full seven while
+ * `keepHand` immediately bottoms N — so to a one-ply evaluator that prices a card in
+ * hand at 1.5, mulliganing looks free and keeping looks expensive. Left to the search,
+ * the Magician and the Archmage took every mulligan available in every game.
+ *
+ * The decision is not a board evaluation. It is a question about mana, and it belongs
+ * in a heuristic that counts lands.
+ */
+describe('the opening hand is decided by counting lands, not by searching', () => {
+  function opening(lands: number, spells: number, mulligansTaken = 0): GameState {
+    const base = withLibraries(battlefield({ you: [], them: [] }));
+    const state = cloneState(base);
+    state.turn = 0;
+    state.priority = 0;
+    state.active = 0;
+    state.players[0].mulligansTaken = mulligansTaken;
+    state.players[0].hand = [];
+
+    let working = state;
+    for (let i = 0; i < lands; i++) {
+      const made = newInstance(working, 'forest', 0, 'hand');
+      working = made.state;
+    }
+    for (let i = 0; i < spells; i++) {
+      const made = newInstance(working, 'grizzly-bears', 0, 'hand');
+      working = made.state;
+    }
+    return working;
+  }
+
+  it.each(TIERS)('%s keeps a three-land seven', tier => {
+    const action = chooseAction(opening(3, 4), tier);
+    expect(action.kind).toBe('keepHand');
+  });
+
+  it.each(TIERS)('%s keeps a two-land seven', tier => {
+    expect(chooseAction(opening(2, 5), tier).kind).toBe('keepHand');
+  });
+
+  it.each(TIERS)('%s mulligans a no-land seven', tier => {
+    expect(chooseAction(opening(0, 7), tier).kind).toBe('mulligan');
+  });
+
+  it.each(TIERS)('%s mulligans an all-land seven', tier => {
+    expect(chooseAction(opening(7, 0), tier).kind).toBe('mulligan');
+  });
+
+  it.each(TIERS)('%s keeps rather than going below five cards', tier => {
+    // Two mulligans in, a keep is five cards. Another is four, and no seven is worth
+    // that — the floor is what stops a bad run spiralling.
+    const action = chooseAction(opening(0, 7, 2), tier);
+    expect(action.kind).toBe('keepHand');
+  });
+
+  it('does not mulligan a perfectly ordinary hand, across many deals', () => {
+    // The bug this pins: it was not that the bot mulliganed a bad hand, it was that it
+    // mulliganed every hand.
+    let mulligans = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const state = cloneState(opening(3, 4));
+      state.rngSeed = seed;
+      if (chooseAction(state, 'magician').kind === 'mulligan') mulligans++;
+    }
+    expect(mulligans).toBe(0);
+  });
+});

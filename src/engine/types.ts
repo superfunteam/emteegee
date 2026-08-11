@@ -290,6 +290,14 @@ export interface CardInstance {
   blocking?: CardId;
   /** Blockers assigned to this attacker, in damage-assignment order. */
   blockedBy: CardId[];
+  /**
+   * Whether this attacker's controller has already chosen that order.
+   *
+   * Needed because "already decided" is otherwise unrepresentable, and the priority
+   * handoff was standing in for it — which capped the whole combat at one ordered
+   * attacker. Cleared when combat ends, along with the rest of the combat state.
+   */
+  damageOrderChosen: boolean;
 }
 
 export interface PlayerState {
