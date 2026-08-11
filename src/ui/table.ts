@@ -307,45 +307,42 @@ function patchBoard(
 }
 
 /**
- * How wide a creature tile should be, given how many share the board.
+ * Make the creature tiles as large as they can be without overflowing their board.
  *
- * The rule the whole layout hangs on: a tile is as large as it can be without either
- * row overflowing or the two boards colliding. One creature gets an enormous portrait;
- * they shrink only when they have to, and never below a 44px tap target.
+ * This measures rather than predicts. An earlier version computed the width from the
+ * count, the gap and the aspect ratio — and got it wrong, because the real height of a
+ * tile also depends on the name row, whose font size itself scales with the tile. One
+ * pixel of error changes how many tiles fit per row, which changes the row count,
+ * which blows the height budget entirely.
  *
- * Both real constraints are measured rather than assumed, because the same board is
- * 320px wide on a small phone and 430px on a large one.
+ * So: start at the largest size that could possibly fit, ask the browser how tall the
+ * result actually is, and step down until it fits. It converges in a handful of passes
+ * and it cannot be wrong, because the answer comes from layout rather than from
+ * arithmetic about layout.
  */
 const TILE_MIN = 46;
 const TILE_MAX = 190;
-const GAP = 6;
-const NAME_ROW = 20;
-const ART_RATIO = 626 / 457;
 
 function sizeTiles(board: HTMLElement): void {
+  const row = board.querySelector<HTMLElement>('.board__row');
   const count = board.querySelectorAll('.tile').length;
-  if (count === 0) return;
+  if (!row || count === 0) return;
 
   const style = getComputedStyle(board);
-  const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
   const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-  const availableW = Math.max(240, board.clientWidth - padX);
-  const availableH = Math.max(90, board.clientHeight - padY);
+  const budget = board.clientHeight - padY;
+  if (budget <= 0) return;
 
-  // Try one row, then two, then three, and keep the arrangement that lets a tile be
-  // widest. More rows means a narrower height budget but more horizontal room.
-  let best = TILE_MIN;
-  for (const rows of [1, 2, 3]) {
-    const perRow = Math.ceil(count / rows);
-    const byWidth = (availableW - GAP * (perRow - 1)) / perRow;
-    const tileH = (availableH - GAP * (rows - 1)) / rows;
-    const byHeight = (tileH - NAME_ROW) * ART_RATIO;
-    const fits = Math.min(byWidth, byHeight);
-    if (fits > best) best = fits;
-  }
-
-  const width = Math.round(Math.max(TILE_MIN, Math.min(TILE_MAX, best)));
+  let width = TILE_MAX;
   board.style.setProperty('--tile-w', `${width}px`);
+
+  // Geometric descent: big steps first so a badly oversized board settles quickly,
+  // then finer ones. Bounded, so this can never spin.
+  for (let pass = 0; pass < 12 && width > TILE_MIN; pass++) {
+    if (row.scrollHeight <= budget) break;
+    width = Math.max(TILE_MIN, Math.floor(width * 0.86));
+    board.style.setProperty('--tile-w', `${width}px`);
+  }
 }
 
 function buildTile(id: CardId, callbacks: TableCallbacks): HTMLElement {

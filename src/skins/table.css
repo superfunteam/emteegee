@@ -182,6 +182,10 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
+  /* Backstop. The sizing above should always fit, but a board must never be able to
+     spill over the mana row or the phase rail — a creature drawn on top of the phase
+     indicator is worse than a creature slightly clipped. */
+  overflow: hidden;
 }
 
 .board--opponent { justify-content: flex-end; padding-bottom: 14px; }
@@ -218,11 +222,14 @@
   font: inherit;
   color: inherit;
   text-align: left;
+  /* Width is deliberately NOT transitioned. The fitting pass in table.ts sets the
+     width and immediately measures the result, and an in-flight transition means it
+     measures the old layout — the loop then never sees its own effect and shrinks
+     every tile to the minimum. */
   transition:
     transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1),
     box-shadow 0.2s,
-    opacity 0.2s,
-    width 0.28s cubic-bezier(0.2, 0.9, 0.25, 1.1);
+    opacity 0.2s;
 }
 
 /* Everything that overlays the art anchors to the art, so a badge cannot drift when
@@ -559,11 +566,13 @@
 
 /* ---------- hints ---------- */
 
+/* Sits above your mana row rather than across it — the gems tell you what you can
+   afford, which is exactly what a hint about what to do next must not hide. */
 .hint {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: calc(180px + env(safe-area-inset-bottom));
+  bottom: calc(208px + env(safe-area-inset-bottom));
   z-index: 40;
   padding: 10px 13px;
   border-radius: 10px;
