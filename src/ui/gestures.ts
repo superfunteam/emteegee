@@ -174,9 +174,18 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
     cancelLongPress();
 
     if (tracking.dragging && tracking.handCard && tracking.handNode) {
+      // Ask what is under the finger BEFORE sending the card home. `endDrag` restores
+      // pointer-events on the dragged node, and for the first frame of its journey back
+      // it is still sitting exactly where it was released — so the hit test finds the
+      // card itself, `.closest('.hand')` matches, and every drop reads as a cancel.
+      //
+      // This is why dropping on the action button worked while dropping on the felt did
+      // not: the button's z-index beat the returning card and won the hit test, so the
+      // one place the bug was invisible was the one place it got tested.
+      const landed = resolveDrop(ev.clientX, ev.clientY);
       endDrag(tracking.handNode);
       swallowClick = true;
-      callbacks.onDrop(tracking.handCard, resolveDrop(ev.clientX, ev.clientY));
+      callbacks.onDrop(tracking.handCard, landed);
       tracking = null;
       return;
     }

@@ -155,10 +155,17 @@ export class Session {
    * spell dropped on open felt springs back rather than guessing its target for it.
    */
   drop(card: CardId, target: DropTarget): void {
-    const wasDragging = this.mode.kind === 'dragging';
     this.mode = { kind: 'idle' };
-    if (!wasDragging) { this.render(); return; }
 
+    // Deliberately NOT gated on this session having registered the drag. A drag that
+    // begins while the animator is still running never reaches `dragStart` — `blocked()`
+    // turns it away and fast-forwards instead — yet the card follows the finger the
+    // whole way regardless, because the gesture layer has no idea it was refused. The
+    // player completes a gesture and the game throws it away without a sound.
+    //
+    // The gesture layer is the authority on "a drag happened". Whether the card may be
+    // PLAYED is decided by `legalActions` below, which is the guard every other path
+    // already trusts — so nothing illegal gets through by loosening this.
     const options = legalActions(this.state).filter(
       a => (a.kind === 'castSpell' || a.kind === 'playLand') && a.card === card,
     );
