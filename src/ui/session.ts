@@ -34,7 +34,7 @@ type Mode =
   | { kind: 'idle' }
   | { kind: 'targeting'; card: CardId; chosen: CardId[] }
   /** A hand card mid-drag: every legal destination glows until it lands. */
-  | { kind: 'dragging'; card: CardId }
+  | { kind: 'dragging'; card: CardId; over: DropTarget }
   | { kind: 'attacking'; picked: Set<CardId> }
   | { kind: 'blocking'; blocker: CardId | null; pairs: Map<CardId, CardId> };
 
@@ -142,8 +142,25 @@ export class Session {
   dragStart(card: CardId): void {
     if (this.blocked()) return;
     sound.unlock();
-    this.mode = { kind: 'dragging', card };
+    this.mode = { kind: 'dragging', card, over: { kind: 'nowhere' } };
     sound.play('select', { gain: 0.5 });
+    this.render();
+  }
+
+  /**
+   * The finger moved over a different drop target.
+   *
+   * Every legal target glowing says where the card MAY go. It does not say where THIS
+   * release will send it — the only question left at the moment of letting go — so the
+   * one under the finger is marked separately, and ticks when it changes.
+   */
+  dragOver(_card: CardId, target: DropTarget): void {
+    if (this.mode.kind !== 'dragging') return;
+    const was = this.mode.over;
+    this.mode = { ...this.mode, over: target };
+    const wasReal = was.kind === 'card' || was.kind === 'player';
+    const isReal = target.kind === 'card' || target.kind === 'player';
+    if (isReal && !(wasReal && sameTarget(was, target))) sound.play('blip', { gain: 0.3 });
     this.render();
   }
 
@@ -203,6 +220,9 @@ export class Session {
     }
 
     if (chosen) {
+      // The tick lands with the card, not after the engine has finished thinking about
+      // it — the hand felt the release, so the confirmation belongs at the release.
+      buzz(9);
       void this.dispatch(chosen);
       return;
     }
@@ -211,6 +231,9 @@ export class Session {
     // dropped on nothing just settles home, since the glow already said where it goes.
     if (target.kind !== 'nowhere' && options.length === 0) {
       sound.play('illegal', { gain: 0.5 });
+      // Two short knocks rather than one: the same "no" the phone gives everywhere
+      // else, so a refusal is distinguishable from a play by feel alone.
+      buzz([0, 26, 60, 26]);
       this.flashWhyNot(card);
     } else {
       sound.play('blip', { gain: 0.4 });
@@ -413,6 +436,10 @@ export class Session {
 
   /** Explains an unaffordable card rather than silently rejecting the tap. */
   private flashWhyNot(card: CardId): void {
+    // The shake goes on before the hint, so the card answers in the same beat the
+    // finger let go rather than a frame behind the sentence explaining it.
+    this.table.refuse(card);
+
     const d = def(this.state, card);
     const sorcerySpeed = !d.cardTypes.includes('instant') && !d.keywords.includes('flash');
     if (sorcerySpeed && this.state.phase !== 'main1' && this.state.phase !== 'main2') {
@@ -655,6 +682,7 @@ export class Session {
       incoming: this.incomingDamage(),
       boardDrop: this.boardDroppable(),
       landDrop: this.landDroppable(),
+      over: this.mode.kind === 'dragging' ? this.mode.over : null,
     };
   }
 
@@ -816,12 +844,21 @@ export class Session {
   }
 }
 
+/** Are these the same drop target? Used to keep the hover tick from stuttering. */
+function sameTarget(a: DropTarget, b: DropTarget): boolean {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === 'card' && b.kind === 'card') return a.id === b.id;
+  if (a.kind === 'player' && b.kind === 'player') return a.id === b.id;
+  return true;
+}
+
 /* ------------------------------------------------------------- utilities */
 
 const pause = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
-/** Haptics, where the device has them and the player has not asked for stillness. */
-function buzz(ms: number): void {
+/** Haptics, where the device has them and the player has not asked for stillness.
+ *  A pattern (`[wait, buzz, wait, buzz]`) is how a refusal says no twice. */
+function buzz(ms: number | number[]): void {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   try {
     navigator.vibrate?.(ms);

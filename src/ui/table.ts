@@ -20,6 +20,7 @@ import {
 import { legalActions, canCast } from '../engine/actions';
 import { el, clear } from './dom';
 import { patchStack } from './stack';
+import type { DropTarget } from './gestures';
 
 /** One glyph per keyword, chosen to read at 9px. */
 const KEYWORD_GLYPH: Partial<Record<Keyword, string>> = {
@@ -77,6 +78,8 @@ export interface TableView {
   root: HTMLElement;
   /** A brief sweep naming whose turn it now is. */
   banner(text: string): void;
+  /** Shake a hand card that was just refused. */
+  refuse(card: CardId): void;
   /** The moment of contact, played on the damage beat. */
   clash(card: CardId): void;
   patch(state: GameState, ui: UiState): void;
@@ -122,6 +125,12 @@ export interface UiState {
    * up in teaches the abstraction in one gesture.
    */
   landDrop: boolean;
+  /**
+   * The one target under the finger right now, or null when nothing is being dragged.
+   * Distinct from the set of legal targets: those say where the card MAY go, this says
+   * where letting go WILL send it.
+   */
+  over: DropTarget | null;
 }
 
 export function createTable(callbacks: TableCallbacks): TableView {
@@ -215,6 +224,20 @@ export function createTable(callbacks: TableCallbacks): TableView {
       tile.classList.add('tile--clash');
       tile.addEventListener('animationend', () => tile.classList.remove('tile--clash'), { once: true });
     },
+    refuse(card) {
+      const node = handCards.get(card);
+      if (!node) return;
+      // Restarted rather than queued: a second refusal of the same card has to be
+      // visible, and re-adding a class the element already carries does nothing.
+      node.classList.remove('hand__card--refused');
+      void node.offsetWidth;
+      node.classList.add('hand__card--refused');
+      // Timer, not animationend. Under reduced motion the animation is `none`, so
+      // animationend never fires and the class sticks to the card for the rest of the
+      // game — the one player who asked for less movement being the one left with a
+      // permanently flagged card.
+      setTimeout(() => node.classList.remove('hand__card--refused'), 320);
+    },
     banner(text) {
       // Replaced rather than queued: if two turns pass faster than the sweep, the
       // player wants the current one, not a backlog of stale announcements.
@@ -301,6 +324,10 @@ function patchRail(
   // whole bar lights up rather than asking the player to find a small hitbox.
   const targetable = ui.targetablePlayers.has(player);
   node.classList.toggle('rail--targetable', targetable);
+  node.classList.toggle(
+    'rail--over',
+    targetable && ui.over?.kind === 'player' && ui.over.id === player,
+  );
   if (targetable && !node.dataset.wired) {
     node.dataset.wired = 'yes';
     node.addEventListener('click', () => {
@@ -499,6 +526,11 @@ function updateTile(tile: HTMLElement, state: GameState, id: CardId, ui: UiState
   setLunge(tile, card.attacking, card.blocking !== undefined, card.controller === ui.you);
   tile.classList.toggle('tile--selected', ui.selected.has(id));
   tile.classList.toggle('tile--targetable', ui.targetable.has(id));
+  // The one under the finger, marked apart from the ones merely eligible.
+  tile.classList.toggle(
+    'tile--over',
+    ui.over?.kind === 'card' && ui.over.id === id && ui.targetable.has(id),
+  );
   tile.classList.toggle('tile--sick',
     card.summonedThisTurn && !hasKeyword(state, id, 'haste') && card.controller === ui.you);
 
@@ -677,7 +709,12 @@ function patchHand(
 
     const off = index - mid;
     card.style.setProperty('--x', `${Math.round(off * spacing)}px`);
-    card.style.setProperty('--rot', `${(off * 4).toFixed(1)}deg`);
+    // A card in the air has straightened, and it must stay straight: the renderer runs
+    // again on every drag frame, and rewriting the fan angle here would fight the lift
+    // the gesture layer just applied — inline against inline, forty times a second.
+    if (!card.classList.contains('hand__card--dragging')) {
+      card.style.setProperty('--rot', `${(off * 4).toFixed(1)}deg`);
+    }
     card.style.setProperty('--dip', `${Math.round(Math.abs(off) * off * 0.9 + Math.abs(off) * 7)}px`);
     card.style.zIndex = String(10 + index);
 

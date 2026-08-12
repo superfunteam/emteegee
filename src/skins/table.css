@@ -402,6 +402,18 @@
 }
 .tile--selected { box-shadow: 0 0 0 3px var(--acc); transform: translateY(-6px); }
 .tile--targetable { box-shadow: 0 0 0 2px var(--acc); animation: pulse 1.4s ease-in-out infinite; }
+
+/*
+ * The committed target. Every legal target pulses to say "this is allowed"; exactly
+ * one says "this is what happens if you let go now" — so the ring goes solid, the
+ * pulse stops (a thing being chosen should hold still), and it rises to meet the card.
+ */
+.tile--over {
+  box-shadow: 0 0 0 3px var(--acc), 0 10px 24px var(--shade);
+  animation: none;
+  transform: translateY(-5px) scale(1.04);
+  z-index: 3;
+}
 .tile--dying { transform: scale(0.7) rotate(-8deg); opacity: 0; }
 
 .tile--entering { animation: summon 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.1); }
@@ -578,14 +590,23 @@
   min-height: 0;
   min-width: 0;
   box-shadow: 0 -4px 14px var(--shade);
-  transform:
-    translateX(var(--x, 0px))
-    translateY(calc(var(--dip, 0px) + var(--dy, 0px)))
-    translateX(var(--dx, 0px))
-    rotate(var(--rot, 0deg))
-    scale(var(--grab, 1));
+  /*
+   * The individual transform longhands rather than one `transform`, because the chase
+   * and the lift need different clocks: the card must sit exactly under the finger
+   * (translate, no transition) while the pick-up eases (rotate and scale, 0.17s). A
+   * single `transform` can only have one duration, so easing the lift meant the card
+   * trailed the finger through the curve, and killing the trail meant the lift snapped
+   * to full size in one frame.
+   */
+  translate: calc(var(--x, 0px) + var(--dx, 0px)) calc(var(--dip, 0px) + var(--dy, 0px));
+  rotate: var(--rot, 0deg);
+  scale: var(--grab, 1);
   transform-origin: bottom center;
-  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1), filter 0.2s;
+  transition:
+    translate 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1),
+    rotate 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1),
+    scale 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1),
+    filter 0.2s;
 }
 
 .hand__card img { width: 100%; display: block; }
@@ -599,6 +620,23 @@
 .hand__card--dim { filter: brightness(0.5) saturate(0.6); }
 
 /*
+ * A refused drop. The card already springs home on its own, which on its own reads as
+ * "the game dropped my input" rather than "that is not allowed" — the shake is the
+ * difference between a bug and an answer.
+ */
+.hand__card--refused { animation: refused 0.3s ease-in-out; }
+
+@keyframes refused {
+  0%, 100% { margin-left: -54px; }
+  25% { margin-left: -61px; }
+  75% { margin-left: -47px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hand__card--refused { animation: none; }
+}
+
+/*
  * Mid-drag: the card rides the finger. Transitions off, or the card lags the pointer
  * by a full ease curve and the drag feels like towing a boat. pointer-events off so
  * elementFromPoint at the drop sees the board underneath, not the card in the way.
@@ -606,7 +644,12 @@
 .hand__card--dragging {
   --grab: 1.12;
   --rot: 0deg;
-  transition: none;
+  /* Zero on the chase, eased on the lift. This is the whole reason the longhands are
+     worth the verbosity above. */
+  transition:
+    translate 0s,
+    rotate 0.17s cubic-bezier(0.2, 0.9, 0.25, 1.1),
+    scale 0.17s cubic-bezier(0.2, 0.9, 0.25, 1.1);
   cursor: grabbing;
   pointer-events: none;
   z-index: 40 !important;

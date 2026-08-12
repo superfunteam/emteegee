@@ -34,6 +34,8 @@ export interface GestureCallbacks {
   onHandPeek(card: string): void;
   /** A drag has left the fan — light the places this card may go. */
   onDragStart(card: string): void;
+  /** The drop target under the finger changed mid-drag. Fires only on change. */
+  onDragOver(card: string, target: DropTarget): void;
   /** The card was released. Always paired with onDragStart, even for 'nowhere'. */
   onDrop(card: string, target: DropTarget): void;
 }
@@ -43,9 +45,18 @@ const SWIPE_MIN_DISTANCE = 40;
 const SWIPE_MAX_DRIFT = 30;
 const SWIPE_MAX_DURATION = 300;
 const LONG_PRESS_MS = 420;
-const LONG_PRESS_TOLERANCE = 10;
 /** Past this, a touch on a hand card stops being a tap and becomes a drag. */
 const DRAG_THRESHOLD = 14;
+/**
+ * Deliberately the same number as the drag threshold, not a smaller one.
+ *
+ * At 10 against a threshold of 14 there was a 4px band where a hold had its read
+ * cancelled but no drag ever started — so a shaky finger resting on a card for half a
+ * second got neither the reader nor a drag, and the click that followed CAST the card
+ * the player was only trying to look at. Matching the two numbers leaves exactly one
+ * boundary: under it you are reading, over it you are dragging.
+ */
+const LONG_PRESS_TOLERANCE = DRAG_THRESHOLD;
 
 interface Tracking {
   pointerId: number;
@@ -58,6 +69,8 @@ interface Tracking {
   dragging: boolean;
   longPressTimer: number | null;
   fired: boolean;
+  /** Last target reported to the session, so the hover only repaints on change. */
+  over: string;
 }
 
 /** What the drop landed on, walking up from whatever elementFromPoint returned. */
@@ -101,6 +114,10 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
     node.classList.remove('hand__card--dragging');
     node.style.removeProperty('--dx');
     node.style.removeProperty('--dy');
+    node.style.removeProperty('--grab');
+    // --rot is deliberately NOT cleared here: the next render rewrites it with the
+    // card's fan angle, and the base transform transition carries the card home
+    // turning as it goes. Clearing it would snap the card upright for one frame first.
   };
 
   const onDown = (ev: PointerEvent): void => {
@@ -126,7 +143,15 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
       dragging: false,
       longPressTimer: null,
       fired: false,
+      over: '',
     };
+
+    // Capture, so the rest of this gesture is delivered here no matter what it passes
+    // over or what re-renders underneath it. Without it a release outside the root —
+    // off the top of the screen, past the bottom edge the fan hangs over — never
+    // arrives, and the card stays frozen in mid-air with pointer-events off, which
+    // ends the game as surely as a crash.
+    try { root.setPointerCapture(ev.pointerId); } catch { /* not capturable; the plain path still works */ }
 
     const held = mana
       ? () => callbacks.onLongPress(mana)
@@ -159,12 +184,30 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
       if (!tracking.dragging && drift > DRAG_THRESHOLD) {
         tracking.dragging = true;
         tracking.handNode.classList.add('hand__card--dragging');
+        // Inline, because the fan's own angle is written inline by the renderer on
+        // every repaint and a stylesheet rule cannot outrank it. The lift belongs to
+        // whoever owns the drag, which is this file — the same place --dx/--dy live.
+        tracking.handNode.style.setProperty('--rot', '0deg');
+        tracking.handNode.style.setProperty('--grab', '1.12');
         callbacks.onDragStart(tracking.handCard);
       }
       if (tracking.dragging) {
         tracking.handNode.style.setProperty('--dx', `${dx}px`);
         tracking.handNode.style.setProperty('--dy', `${dy}px`);
         ev.preventDefault();
+
+        // Which of the lit targets is actually under the finger. Every legal target
+        // glowing tells the player where a card MAY go; it does not tell them where
+        // THIS release will send it, which is the only question at the moment of
+        // letting go. Keyed so a repaint costs nothing while the finger sits still.
+        const target = resolveDrop(ev.clientX, ev.clientY);
+        const key = target.kind === 'card' ? `card:${target.id}`
+          : target.kind === 'player' ? `player:${target.id}`
+          : target.kind;
+        if (key !== tracking.over) {
+          tracking.over = key;
+          callbacks.onDragOver(tracking.handCard, target);
+        }
       }
     }
   };
@@ -172,6 +215,7 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
   const onUp = (ev: PointerEvent): void => {
     if (!tracking || ev.pointerId !== tracking.pointerId) return;
     cancelLongPress();
+    try { root.releasePointerCapture(ev.pointerId); } catch { /* already gone */ }
 
     if (tracking.dragging && tracking.handCard && tracking.handNode) {
       // Ask what is under the finger BEFORE sending the card home. `endDrag` restores
@@ -219,8 +263,9 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
     tracking = null;
   };
 
-  const onCancel = (): void => {
+  const onCancel = (ev: PointerEvent): void => {
     cancelLongPress();
+    try { root.releasePointerCapture(ev.pointerId); } catch { /* already gone */ }
     if (tracking?.dragging && tracking.handNode && tracking.handCard) {
       endDrag(tracking.handNode);
       callbacks.onDrop(tracking.handCard, { kind: 'nowhere' });
@@ -235,18 +280,29 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
     ev.preventDefault();
   };
 
+  /*
+   * A gesture BEGINS on the table and may end anywhere.
+   *
+   * Binding the end of it to the table was a trap: release past the bottom edge the fan
+   * hangs over, or off the top of the screen, and the pointerup never arrived — leaving
+   * the card frozen in mid-air with pointer-events off, which ends the game as surely
+   * as a crash. Pointer capture above handles this for a real finger; the window
+   * listeners are what make it true unconditionally, including where capture is
+   * refused. Both can fire for one release, and the second is a no-op because the first
+   * clears `tracking`.
+   */
   root.addEventListener('pointerdown', onDown);
-  root.addEventListener('pointermove', onMove);
-  root.addEventListener('pointerup', onUp);
-  root.addEventListener('pointercancel', onCancel);
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onCancel);
   // Capture phase, so the swallow beats every per-card click handler.
   root.addEventListener('click', onClick, true);
 
   return () => {
     root.removeEventListener('pointerdown', onDown);
-    root.removeEventListener('pointermove', onMove);
-    root.removeEventListener('pointerup', onUp);
-    root.removeEventListener('pointercancel', onCancel);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
     root.removeEventListener('click', onClick, true);
   };
 }

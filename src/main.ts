@@ -106,6 +106,7 @@ function startMatch(deck: Deck, tier: Tier): void {
     // overlay: it works on the opponent's turn and mid-animation too.
     onHandPeek: card => session.handPeek(card),
     onDragStart: card => session.dragStart(card),
+    onDragOver: (card, target) => session.dragOver(card, target),
     onDrop: (card, target) => session.drop(card, target),
   });
 
