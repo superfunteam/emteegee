@@ -99,6 +99,9 @@ export function patchStack(
     const row = el<HTMLButtonElement>('button.stack__item', {
       type: 'button',
       dataOwner: mine ? 'you' : 'them',
+      // The travel ghosts need to find "where this spell sits on the stack" — both as
+      // a destination when it is cast and as a remembered origin when it resolves.
+      dataCard: object.source,
       'aria-label': `Read ${describe(state, object)}`,
     },
       el<HTMLImageElement>('img.stack__art', { src: artFor(state, object.source), alt: '' }),

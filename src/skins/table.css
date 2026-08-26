@@ -199,6 +199,24 @@
    the light skins, so desaturate and dim instead. */
 .manapill--dry { filter: grayscale(0.8); opacity: 0.45; }
 
+/* Mana was just spent from this color: a bright blink before it settles, so the
+   cost of a spell is visible IN the row the moment it is paid — especially the
+   Magician's, whose plays otherwise change the numbers silently. */
+.manapill--drained { animation: pill-drain 0.5s ease-out; }
+
+@keyframes pill-drain {
+  0% { filter: brightness(1.9) grayscale(0); opacity: 1; transform: scale(1.12); }
+  100% { transform: none; }
+}
+
+/* Mana just became available — a land arrived, or the untap step refreshed it. */
+.manapill--grew { animation: pill-grow 0.35s cubic-bezier(0.2, 0.9, 0.25, 1.2); }
+
+@keyframes pill-grow {
+  from { transform: scale(0.6); }
+  to { transform: none; }
+}
+
 .mana__lands {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -509,6 +527,15 @@
   font-size: 9.5px;
   background: var(--acc);
   white-space: nowrap;
+  /* Fires when the class arrives — that is, once per phase change. The pop is what
+     makes the word's movement along the rail read as PROGRESS rather than as the
+     label idly redecorating itself. */
+  animation: phase-pop 0.3s cubic-bezier(0.2, 0.9, 0.25, 1.2);
+}
+
+@keyframes phase-pop {
+  from { transform: scale(0.8); }
+  to { transform: none; }
 }
 
 .yard {
@@ -696,6 +723,103 @@
   0% { opacity: 0; transform: translateY(6px) scale(0.8); }
   18% { opacity: 1; transform: translateY(-4px) scale(1.15); }
   100% { opacity: 0; transform: translateY(-40px) scale(1); }
+}
+
+/* ---------- the effects layer ---------- */
+
+/*
+ * Travel ghosts: cards flying from where a thing was to where it now lives, bolts
+ * crossing the table, rings marking a point of impact. The layer sits over the whole
+ * table (under the banner and every overlay) and never takes a touch. Motion is
+ * driven by the Web Animations API from fx.ts — the geometry is measured, not
+ * styled — so this file only owns what a ghost looks like.
+ */
+.fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 42;
+}
+
+.fx__ghost {
+  position: absolute;
+  will-change: transform, opacity;
+}
+
+.fx__ghost > * { width: 100%; height: 100%; }
+
+.fx__card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  border: 1px solid rgb(0 0 0 / 0.55);
+  box-shadow: 0 10px 26px var(--shade);
+}
+
+.fx__cardback {
+  border-radius: 3px;
+  background: linear-gradient(155deg, #3a2a1c, #191108);
+  border: 1px solid #0b0705;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.5);
+}
+
+/* A countered spell shakes apart rather than travelling anywhere. */
+.fx__fizzle { animation: fx-shake 0.3s ease-in-out; }
+
+@keyframes fx-shake {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: -5px; }
+  75% { margin-left: 4px; }
+}
+
+/* Damage with no body behind it: a burn spell's bolt, glowing in the damage color. */
+.fx__bolt {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 14px 5px color-mix(in srgb, var(--danger) 55%, transparent);
+  will-change: transform, opacity;
+}
+
+/* The exact point something was hit. Expands and dies in one beat. */
+.fx__ring {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  border: 3px solid var(--danger);
+  animation: fx-ring 0.38s ease-out forwards;
+}
+
+@keyframes fx-ring {
+  from { transform: scale(0.35); opacity: 0.9; }
+  to { transform: scale(1.5); opacity: 0; }
+}
+
+/* A rail that just took damage recoils — the whole bar, because the whole bar is
+   the player. */
+.rail--struck { animation: rail-struck 0.32s ease-out; }
+
+@keyframes rail-struck {
+  0%, 100% { transform: none; }
+  30% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+}
+
+/* A ring flash in the accent: a trigger firing, a counter landing — "this card just
+   did something", pointed at the card that did it. */
+.tile--pulsed { animation: tile-pulse 0.5s ease-out; }
+
+@keyframes tile-pulse {
+  0% { box-shadow: 0 0 0 0 var(--acc); }
+  40% { box-shadow: 0 0 0 5px var(--acc), 0 0 18px 2px var(--acc); }
+  100% { box-shadow: 0 0 0 7px transparent; }
 }
 
 /* ---------- primary action button ---------- */

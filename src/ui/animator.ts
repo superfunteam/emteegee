@@ -44,7 +44,12 @@ const DURATION: Record<GameEvent['type'], number> = {
  */
 const INSTANT: ReadonlySet<GameEvent['type']> = new Set(['ZONE_CHANGE']);
 
-export type EventHandler = (event: GameEvent) => void;
+/**
+ * `instant` is true when this event will not get its beat — reduced motion, the
+ * player fast-forwarding, or an event that never pauses. The renderer uses it to
+ * skip spawning travel ghosts that would otherwise pile up with no time to play.
+ */
+export type EventHandler = (event: GameEvent, instant: boolean) => void;
 
 export class Animator {
   private queue: GameEvent[] = [];
@@ -87,10 +92,11 @@ export class Animator {
 
     while (this.queue.length) {
       const event = this.queue.shift()!;
-      this.render(event);
+      const instant = reduced || this.skipping || INSTANT.has(event.type);
+      this.render(event, instant);
       this.playSound(event);
 
-      if (reduced || this.skipping || INSTANT.has(event.type)) continue;
+      if (instant) continue;
       await wait(DURATION[event.type]);
     }
 

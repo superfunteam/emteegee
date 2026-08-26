@@ -18,9 +18,12 @@ import {
   cardsIn, def, inst, isCreature, powerOf, toughnessOf, hasKeyword, availableMana, opponentOf,
 } from '../engine/state';
 import { legalActions, canCast } from '../engine/actions';
-import { el, clear } from './dom';
+import { el, clear, reflow } from './dom';
 import { patchStack } from './stack';
 import type { DropTarget } from './gestures';
+import {
+  bolt, centerOf, createFxLayer, dissolve, fly, ghostBack, ghostCard, impactRing, peck, rectAt,
+} from './fx';
 
 /** One glyph per keyword, chosen to read at 9px. */
 const KEYWORD_GLYPH: Partial<Record<Keyword, string>> = {
@@ -74,6 +77,15 @@ export interface TableCallbacks {
   onAct(): void;
 }
 
+/** What a strike is aimed at: a creature's tile, or a player's whole rail. */
+export type StrikeTarget = { kind: 'tile'; id: CardId } | { kind: 'rail'; you: boolean };
+
+/** Where a resolved stack object ended up, as far as the table can show it. */
+export type ResolveDest =
+  | { kind: 'battlefield'; attachedTo: CardId | null }
+  | { kind: 'grave' }
+  | { kind: 'away' };
+
 export interface TableView {
   root: HTMLElement;
   /** A brief sweep naming whose turn it now is. */
@@ -86,6 +98,43 @@ export interface TableView {
   tileFor(card: CardId): HTMLElement | undefined;
   floaty(text: string, kind: 'damage' | 'gain', anchor: 'you' | 'opponent'): void;
   ribbon(text: string | null): void;
+  /**
+   * Record where everything currently is, before a batch of events repaints the
+   * table. The repaint jumps straight to the final state; the travel ghosts need to
+   * know where things USED to be, and this is the only moment that knowledge exists.
+   */
+  snapshot(): void;
+  /**
+   * Keep these tiles on the board past their removal from state, so a creature is
+   * still standing when the damage that kills it lands. `perish` releases each one
+   * on its DIE beat; `releaseHeld` sweeps up anything a batch left behind.
+   */
+  holdForDeaths(cards: CardId[]): void;
+  releaseHeld(): void;
+  /** The DIE beat: the tile leaves the board, toward the graveyard if it is yours. */
+  perish(card: CardId, opts: { instant: boolean; toGrave: boolean }): void;
+  /**
+   * One hit, directed: the source pecks at its target, the target takes the impact.
+   * `sourceYours` picks the fallback origin for a source with no body on screen.
+   * Returns the ms until contact so the caller can time the numbers to the blow.
+   */
+  strike(source: CardId, target: StrikeTarget, sourceYours: boolean): number;
+  /** A ring flash on a tile — a trigger firing, a counter landing. */
+  pulse(card: CardId): void;
+  /** A card back travelling from a library counter into a hand. */
+  flyDraw(you: boolean, card: CardId): void;
+  /** A land travelling from a hand into its owner's mana row. */
+  flyPlay(card: CardId, image: string, you: boolean): void;
+  /**
+   * A card leaving a hand for wherever it now is: the stack when it is waiting
+   * there, or — when it resolved in the same batch it was cast, so the stack moment
+   * never reaches the screen — its tile, the graveyard, or a fade at mid-table.
+   */
+  flyFromHand(card: CardId, image: string, you: boolean, dest: 'stack' | 'board' | 'grave' | 'mid'): void;
+  /** A resolved stack object travelling from the stack to wherever it ended up. */
+  flyResolve(card: CardId, art: string, to: ResolveDest): void;
+  /** A countered spell shaking apart where it sat on the stack. */
+  fizzle(card: CardId, art: string): void;
 }
 
 /** Presentation-only state: what the player has picked up but not yet committed. */
@@ -150,13 +199,35 @@ export function createTable(callbacks: TableCallbacks): TableView {
   const act = el<HTMLButtonElement>('button.act', { type: 'button' });
   act.addEventListener('click', () => callbacks.onAct());
 
+  const fx = createFxLayer();
+
   const root = el('div.table', { role: 'application', 'aria-label': 'Magic game table' },
-    oppRail, backs, oppMana, oppBoard, mid, youBoard, youMana, youRail, hand, stack, act);
+    oppRail, backs, oppMana, oppBoard, mid, youBoard, youMana, youRail, hand, stack, fx, act);
 
   const tiles = new Map<CardId, HTMLElement>();
   const handCards = new Map<CardId, HTMLElement>();
   let ribbonNode: HTMLElement | null = null;
   let hintNode: HTMLElement | null = null;
+
+  /**
+   * Tiles kept on the board past their removal from state, keyed by the DIE events
+   * still waiting to play. Without this, a batch that deals lethal damage removes the
+   * creature on its very first repaint — before the blow that killed it is shown —
+   * and the clash lands on empty felt.
+   */
+  const held = new Set<CardId>();
+
+  /** Where everything was before the current batch of events repainted the table. */
+  interface Snap {
+    hand: Map<CardId, DOMRect>;
+    tiles: Map<CardId, DOMRect>;
+    /** The art thumb of each stack row, which is the part a ghost matches. */
+    stackArts: Map<CardId, DOMRect>;
+    backs: DOMRect;
+    libYou: DOMRect | null;
+    libThem: DOMRect | null;
+  }
+  let snap: Snap | null = null;
 
   function patch(state: GameState, ui: UiState): void {
     const them = opponentOf(ui.you);
@@ -166,8 +237,8 @@ export function createTable(callbacks: TableCallbacks): TableView {
     patchRail(youRail, state, ui.you, true, ui, callbacks);
     patchMana(oppMana, state, them, false, callbacks);
     patchMana(youMana, state, ui.you, true, callbacks);
-    patchBoard(oppBoard, state, them, ui, tiles, callbacks);
-    patchBoard(youBoard, state, ui.you, ui, tiles, callbacks);
+    patchBoard(oppBoard, state, them, ui, tiles, held, callbacks);
+    patchBoard(youBoard, state, ui.you, ui, tiles, held, callbacks);
     youBoard.classList.toggle('board--drop', ui.boardDrop);
     youMana.classList.toggle('mana--drop', ui.landDrop);
     // Sized after both boards exist, so each measures the height it actually got.
@@ -209,20 +280,256 @@ export function createTable(callbacks: TableCallbacks): TableView {
   window.addEventListener('resize', repatch);
   window.addEventListener('orientationchange', () => setTimeout(repatch, 150));
 
+  /**
+   * Restart a one-shot animation class even when the element already carries it.
+   * The reflow matters: re-adding a class in the same frame does not restart the
+   * animation, and a creature struck twice in one combat would only flash once.
+   * The timer backstop matters too: under reduced motion the animation is `none`,
+   * so animationend never fires and the class would stick for the rest of the game.
+   */
+  function flash(node: HTMLElement, cls: string, timeoutMs: number): void {
+    node.classList.remove(cls);
+    reflow(node);
+    node.classList.add(cls);
+    node.addEventListener('animationend', () => node.classList.remove(cls), { once: true });
+    setTimeout(() => node.classList.remove(cls), timeoutMs);
+  }
+
+  function clashTile(card: CardId): void {
+    const tile = tiles.get(card);
+    if (tile) flash(tile, 'tile--clash', 500);
+  }
+
+  /** The mana row's lands button — where a played land visibly ends up. */
+  const manaHome = (you: boolean): HTMLElement | null =>
+    (you ? youMana : oppMana).querySelector<HTMLElement>('.mana__lands');
+
+  /** Where a flight out of a player's hand starts: your card, or their card backs. */
+  function handOrigin(card: CardId, you: boolean): DOMRect | null {
+    if (!snap) return null;
+    if (you) return snap.hand.get(card) ?? null;
+    return rectAt(centerOf(snap.backs), 34, 47);
+  }
+
+  function revealTile(tile: HTMLElement): void {
+    tile.style.opacity = '';
+    tile.classList.remove('tile--entering');
+    reflow(tile);
+    tile.classList.add('tile--entering');
+    tile.addEventListener('animationend', () => tile.classList.remove('tile--entering'), { once: true });
+    setTimeout(() => tile.classList.remove('tile--entering'), 700);
+  }
+
   return {
     root,
     patch(state: GameState, ui: UiState) { lastState = state; lastUi = ui; patch(state, ui); },
     tileFor: card => tiles.get(card),
     ribbon: setRibbon,
-    clash(card) {
+    clash: clashTile,
+
+    snapshot() {
+      const stackArts = new Map<CardId, DOMRect>();
+      for (const row of stack.querySelectorAll<HTMLElement>('.stack__item')) {
+        const art = row.querySelector<HTMLElement>('.stack__art');
+        if (row.dataset.card && art) stackArts.set(row.dataset.card, art.getBoundingClientRect());
+      }
+      snap = {
+        hand: new Map([...handCards].map(([id, node]) => [id, node.getBoundingClientRect()])),
+        tiles: new Map([...tiles].map(([id, node]) => [id, node.getBoundingClientRect()])),
+        stackArts,
+        backs: backs.getBoundingClientRect(),
+        libYou: youRail.querySelector('.js-lib')?.getBoundingClientRect() ?? null,
+        libThem: oppRail.querySelector('.js-lib')?.getBoundingClientRect() ?? null,
+      };
+    },
+
+    holdForDeaths(cards) {
+      for (const id of cards) if (tiles.has(id)) held.add(id);
+    },
+
+    releaseHeld() {
+      for (const id of held) {
+        const tile = tiles.get(id);
+        tiles.delete(id);
+        if (tile) {
+          tile.classList.add('tile--dying');
+          setTimeout(() => tile.remove(), 400);
+        }
+      }
+      held.clear();
+    },
+
+    perish(card, opts) {
+      held.delete(card);
       const tile = tiles.get(card);
       if (!tile) return;
-      tile.classList.remove('tile--clash');
-      // Force a reflow, or re-adding the class in the same frame does not restart the
-      // animation and a creature struck twice in one combat only flashes once.
-      void tile.offsetWidth;
-      tile.classList.add('tile--clash');
-      tile.addEventListener('animationend', () => tile.classList.remove('tile--clash'), { once: true });
+      tiles.delete(card);
+
+      const from = tile.getBoundingClientRect();
+      const art = tile.querySelector<HTMLImageElement>('.tile__art')?.src ?? '';
+      tile.remove();
+      if (opts.instant || !art) return;
+
+      const yard = mid.querySelector<HTMLElement>('.yard button');
+      if (opts.toGrave && yard) {
+        // Yours travel to the graveyard button, so "Grave 3" becomes a place cards
+        // visibly go rather than a counter that changes on its own.
+        fly(fx, ghostCard(art), {
+          from, to: yard.getBoundingClientRect(), duration: 400, arc: 20, settleOpacity: 0.2,
+        });
+      } else {
+        // The Magician's graveyard has no button to travel to; theirs just fall apart.
+        dissolve(fx, ghostCard(art), from, 400);
+      }
+    },
+
+    strike(source, target, sourceYours) {
+      const targetNode = target.kind === 'tile' ? tiles.get(target.id) : target.you ? youRail : oppRail;
+      if (!targetNode) return 0;
+      const contact = centerOf(targetNode.getBoundingClientRect());
+
+      const land = (): void => {
+        impactRing(fx, contact);
+        if (target.kind === 'tile') clashTile(target.id);
+        else flash(targetNode, 'rail--struck', 400);
+      };
+
+      // A creature strikes with its body; a spell arrives as a bolt from where it sat
+      // on the stack — or, when it was cast and resolved in one breath, from the hand
+      // it left. Damage with no origin at all still marks its point of impact.
+      const sourceTile = tiles.get(source);
+      if (sourceTile) {
+        const delay = peck(sourceTile, contact, 240);
+        setTimeout(land, delay);
+        return delay;
+      }
+      const origin = snap?.stackArts.get(source) ?? handOrigin(source, sourceYours);
+      if (origin) {
+        bolt(fx, centerOf(origin), contact, 190, land);
+        return 190;
+      }
+      land();
+      return 0;
+    },
+
+    pulse(card) {
+      const tile = tiles.get(card);
+      if (tile) flash(tile, 'tile--pulsed', 600);
+    },
+
+    flyDraw(you, card) {
+      const from = you ? snap?.libYou : snap?.libThem;
+      if (!from) return;
+      const dest = you
+        ? handCards.get(card)?.getBoundingClientRect() ?? rectAt(centerOf(hand.getBoundingClientRect()), 108, 150)
+        : rectAt(centerOf(backs.getBoundingClientRect()), 34, 47);
+      fly(fx, ghostBack(), {
+        from: rectAt(centerOf(from), 30, 42), to: dest, duration: 200, arc: 12, settleOpacity: 0.4,
+      });
+    },
+
+    flyPlay(card, image, you) {
+      const from = handOrigin(card, you);
+      const home = manaHome(you);
+      if (!from || !home) return;
+      fly(fx, ghostCard(image), {
+        from, to: home.getBoundingClientRect(), duration: 300, arc: 22, settleOpacity: 0,
+      });
+    },
+
+    flyFromHand(card, image, you, dest) {
+      const from = handOrigin(card, you);
+      if (!from) return;
+
+      if (dest === 'stack') {
+        const row = stack.querySelector<HTMLElement>(`.stack__item[data-card="${card}"] .stack__art`);
+        if (row) {
+          fly(fx, ghostCard(image), {
+            from, to: row.getBoundingClientRect(), duration: 280, arc: 18, settleOpacity: 0.1,
+          });
+          return;
+        }
+        dest = 'mid';
+      }
+
+      if (dest === 'board') {
+        const tile = tiles.get(card);
+        if (tile) {
+          tile.style.opacity = '0';
+          fly(fx, ghostCard(image), {
+            from, to: tile.getBoundingClientRect(), duration: 280, arc: 18,
+            onArrive: () => revealTile(tile),
+          });
+          return;
+        }
+        dest = 'mid';
+      }
+
+      if (dest === 'grave') {
+        const yard = mid.querySelector<HTMLElement>('.yard button');
+        if (yard) {
+          fly(fx, ghostCard(image), {
+            from, to: yard.getBoundingClientRect(), duration: 280, arc: 18, settleOpacity: 0.2,
+          });
+          return;
+        }
+        dest = 'mid';
+      }
+
+      // A spell with no home to show: it happens at mid-table and fades there.
+      fly(fx, ghostCard(image), {
+        from, to: rectAt(centerOf(mid.getBoundingClientRect()), 56, 40),
+        duration: 280, arc: 18, settleOpacity: 0,
+      });
+    },
+
+    flyResolve(card, art, to) {
+      const from = snap?.stackArts.get(card);
+      if (!from) return;
+
+      if (to.kind === 'battlefield') {
+        const tile = tiles.get(card);
+        if (tile) {
+          // Already on the table before this batch means this is a trigger resolving,
+          // not an arrival — nothing travelled, so nothing should fly.
+          if (snap?.tiles.has(card)) return;
+          tile.style.opacity = '0';
+          fly(fx, ghostCard(art), {
+            from, to: tile.getBoundingClientRect(), duration: 240, arc: 16,
+            onArrive: () => revealTile(tile),
+          });
+          return;
+        }
+        // No tile of its own — an aura lands on its creature; anything else fades out
+        // where it resolved rather than pretending to have a home on screen.
+        const host = to.attachedTo ? tiles.get(to.attachedTo) : undefined;
+        if (host) {
+          fly(fx, ghostCard(art), {
+            from, to: host.getBoundingClientRect(), duration: 240, arc: 16, settleOpacity: 0,
+            onArrive: () => flash(host, 'tile--pulsed', 600),
+          });
+          return;
+        }
+        dissolve(fx, ghostCard(art), from, 240);
+        return;
+      }
+
+      const yard = mid.querySelector<HTMLElement>('.yard button');
+      if (to.kind === 'grave' && yard) {
+        fly(fx, ghostCard(art), {
+          from, to: yard.getBoundingClientRect(), duration: 260, arc: 14, settleOpacity: 0.2,
+        });
+        return;
+      }
+      dissolve(fx, ghostCard(art), from, 260);
+    },
+
+    fizzle(card, art) {
+      const from = snap?.stackArts.get(card);
+      if (!from) return;
+      const ghost = ghostCard(art);
+      ghost.classList.add('fx__fizzle');
+      dissolve(fx, ghost, from, 300);
     },
     refuse(card) {
       const node = handCards.get(card);
@@ -344,9 +651,6 @@ function patchMana(
   const lands = cardsIn(state, player, 'battlefield').filter(id => def(state, id).cardTypes.includes('land'));
   const pool = availableMana(state, player);
 
-  clear(node);
-  node.append(el('span.mana__label', { 'aria-hidden': 'true', text: 'mana' }));
-
   /*
    * One pill per color: an icon, a count, on the color. "Two Forests" reads as a tree,
    * a 2, and a green pill — which a beginner can say out loud. The row of anonymous
@@ -362,6 +666,27 @@ function patchMana(
     total.set(produces, (total.get(produces) ?? 0) + 1);
   }
 
+  /*
+   * Repaint only when the row would actually change. This is what lets a pill ANIMATE
+   * its change: the drain flash and the grow pop are classes on freshly built pills,
+   * and rebuilding the row on every animation beat would cut them off mid-play. The
+   * signature also carries enough to diff — a color whose available count fell since
+   * the last paint flashes as spent, one that rose (an untap, a land played) pops in.
+   */
+  const signature =
+    [...total].map(([c, n]) => `${c}:${n}:${pool[c] ?? 0}`).join(',') + `|${lands.length}`;
+  const previous = new Map<string, number>();
+  const hadPrevious = node.dataset.sig !== undefined;
+  if (node.dataset.sig === signature) return;
+  for (const part of (node.dataset.sig ?? '').split('|')[0]!.split(',')) {
+    const [color, , untapped] = part.split(':');
+    if (color) previous.set(color, Number(untapped));
+  }
+  node.dataset.sig = signature;
+
+  clear(node);
+  node.append(el('span.mana__label', { 'aria-hidden': 'true', text: 'mana' }));
+
   const said: string[] = [];
   for (const [color, count] of total) {
     const untapped = pool[color] ?? 0;
@@ -369,6 +694,11 @@ function patchMana(
     const pill = el('span.manapill', { 'aria-hidden': 'true' });
     pill.classList.add(`manapill--${key}`);
     if (untapped === 0) pill.classList.add('manapill--dry');
+    if (hadPrevious) {
+      const before = previous.get(color);
+      if (before !== undefined && untapped < before) pill.classList.add('manapill--drained');
+      else if (before === undefined || untapped > before) pill.classList.add('manapill--grew');
+    }
     pill.append(
       el<HTMLImageElement>('img.manapill__icon', {
         src: `mana/${key}.png`, alt: '', width: '18', height: '18',
@@ -398,7 +728,7 @@ const COLOR_NAME: Record<Color | 'C', string> = {
 
 function patchBoard(
   node: HTMLElement, state: GameState, player: PlayerId, ui: UiState,
-  tiles: Map<CardId, HTMLElement>, callbacks: TableCallbacks,
+  tiles: Map<CardId, HTMLElement>, held: ReadonlySet<CardId>, callbacks: TableCallbacks,
 ): void {
   const creatures = cardsIn(state, player, 'battlefield').filter(id => isCreature(state, id));
 
@@ -415,7 +745,11 @@ function patchBoard(
   const present = new Set(creatures);
   for (const [id, tile] of tiles) {
     if (!present.has(id) && tile.parentElement === row) {
-      // Let the death animation play before the node leaves the tree.
+      // A creature whose DIE beat has not played yet stays standing — still lunged,
+      // still wearing its last state — so the blow that kills it lands on a body.
+      // `perish` removes it on its beat; everything else (a bounce, an exile) leaves
+      // immediately with the death animation, as before.
+      if (held.has(id)) continue;
       tile.classList.add('tile--dying');
       setTimeout(() => tile.remove(), 400);
       tiles.delete(id);

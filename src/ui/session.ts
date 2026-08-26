@@ -22,7 +22,7 @@ import { speechFor } from '../bot/personality';
 import { Animator } from './animator';
 import type { DropTarget } from './gestures';
 import { sound } from '../audio/kit';
-import type { TableView, UiState } from './table';
+import type { ResolveDest, TableView, UiState } from './table';
 import type { PromptView } from './overlay';
 import { hintFor } from './hints';
 
@@ -67,6 +67,9 @@ export class Session {
   private speech: string | null = null;
   private hint: string | null = null;
   private busy = false;
+  /** Sources dealing damage in the batch now playing — their resolution ghost defers
+   *  to the bolt, so one event is not explained by two ghosts at once. */
+  private damageSources = new Set<CardId>();
 
   constructor(opts: SessionOptions) {
     this.state = opts.initial;
@@ -74,7 +77,7 @@ export class Session {
     this.prompts = opts.prompts;
     this.tier = opts.tier;
     this.onGameOver = opts.onGameOver;
-    this.animator = new Animator(event => this.renderEvent(event));
+    this.animator = new Animator((event, instant) => this.renderEvent(event, instant));
   }
 
   start(): void {
@@ -521,9 +524,10 @@ export class Session {
       const result = reduce(this.state, action);
       this.state = result.state;
       this.enterModeForPhase();
-      this.animator.enqueue(result.events);
+      this.present(result.events);
       this.render();
       await this.animator.idle();
+      this.table.releaseHeld();
     } catch (err) {
       // An illegal action reaching reduce() is a bug in this file, not user error.
       console.error('emteegee: rejected action', action, err);
@@ -572,9 +576,10 @@ export class Session {
       const result = reduce(this.state, action);
       this.state = result.state;
       this.enterModeForPhase();
-      this.animator.enqueue(result.events);
+      this.present(result.events);
       this.render();
       await this.animator.idle();
+      this.table.releaseHeld();
       this.speech = null;
     }
 
@@ -609,7 +614,24 @@ export class Session {
 
   /* ------------------------------------------------------------ rendering */
 
-  private renderEvent(event: GameEvent): void {
+  /**
+   * Hand a batch of events to the animator, with everything the beats will need
+   * prepared first: a snapshot of where every node currently is (the repaint jumps
+   * straight to the final state, so "where things were" exists only now), the doomed
+   * held on the board until their DIE beat, and a note of which sources deal damage.
+   */
+  private present(events: readonly GameEvent[]): void {
+    this.table.snapshot();
+    this.table.holdForDeaths(events.flatMap(e => (e.type === 'DIE' ? [e.card] : [])));
+    this.damageSources = new Set(events.flatMap(e => (e.type === 'DAMAGE' ? [e.source] : [])));
+    this.animator.enqueue(events);
+  }
+
+  private renderEvent(event: GameEvent, instant: boolean): void {
+    // Paint the new state first: strikes and flights aim at nodes this patch creates,
+    // while their starting points come from the snapshot taken before the batch.
+    this.render();
+
     switch (event.type) {
       case 'PHASE':
         // Only the untap step, which is the one phase that is unambiguously "a new
@@ -618,25 +640,132 @@ export class Session {
           this.table.banner(event.active === YOU ? 'Your turn' : 'The Magician');
         }
         break;
-      case 'DAMAGE':
-        if (!event.isPlayer) this.table.clash(event.target);
+
+      case 'DRAW':
+        if (!instant) this.table.flyDraw(event.player === YOU, event.card);
+        break;
+
+      case 'PLAY':
+        // Lands are the only thing PLAYed, and their new home is the mana row —
+        // watching the card become a pill teaches the row's whole abstraction.
+        if (!instant) this.table.flyPlay(event.card, this.imageOf(event.card), event.player === YOU);
+        break;
+
+      case 'CAST': {
+        if (instant) break;
+        const you = event.player === YOU;
+        const image = this.imageOf(event.card);
+        if (this.state.stack.some(o => o.source === event.card)) {
+          this.table.flyFromHand(event.card, image, you, 'stack');
+          break;
+        }
+        // Nothing could respond, so the spell resolved in the same batch it was cast
+        // and the stack moment never reaches the screen. The card travels straight
+        // from the hand to wherever it ended up instead.
+        const card = this.state.cards[event.card];
+        if (!card) break;
+        if (card.zone === 'battlefield') this.table.flyFromHand(event.card, image, you, 'board');
+        else if (this.damageSources.has(event.card)) break; // the bolt tells this story
+        else if (card.zone === 'graveyard' && card.owner === YOU) {
+          this.table.flyFromHand(event.card, image, you, 'grave');
+        } else this.table.flyFromHand(event.card, image, you, 'mid');
+        break;
+      }
+
+      case 'RESOLVE': {
+        if (instant) break;
+        const card = this.state.cards[event.card];
+        if (!card) break;
+        // A spell about to deal damage tells its story with the bolt; sending its
+        // card to the graveyard at the same moment would be two ghosts for one event.
+        if (card.zone !== 'battlefield' && this.damageSources.has(event.card)) break;
+        const dest: ResolveDest =
+          card.zone === 'battlefield'
+            ? { kind: 'battlefield', attachedTo: card.attachedTo ?? null }
+            : card.zone === 'graveyard' && card.owner === YOU
+              ? { kind: 'grave' }
+              : { kind: 'away' };
+        this.table.flyResolve(event.card, this.artOf(event.card), dest);
+        break;
+      }
+
+      case 'COUNTERED':
+        if (!instant) this.table.fizzle(event.card, this.artOf(event.card));
+        break;
+
+      case 'TRIGGER':
+        // The ring answers "why did that just happen" by pointing at the card that
+        // did it — the single most opaque moment for someone new to triggers.
+        if (!instant) this.table.pulse(event.source);
+        break;
+
+      case 'COUNTER_ADD':
+        if (!instant) this.table.pulse(event.card);
+        break;
+
+      case 'DIE':
+        this.table.perish(event.card, {
+          instant,
+          toGrave: this.state.cards[event.card]?.owner === YOU,
+        });
+        break;
+
+      case 'DAMAGE': {
+        if (instant) {
+          if (!event.isPlayer) this.table.clash(event.target);
+          else {
+            this.table.floaty(`−${event.amount}`, 'damage', event.target === YOU ? 'you' : 'opponent');
+            if (event.target === YOU) buzz(Math.min(60, 12 + event.amount * 6));
+          }
+          break;
+        }
+        // Directed: the source pecks at exactly what it hit, and the impact —
+        // ring, flash, number, buzz — lands at the moment of contact.
+        const contact = this.table.strike(
+          event.source,
+          event.isPlayer
+            ? { kind: 'rail', you: event.target === YOU }
+            : { kind: 'tile', id: event.target },
+          this.state.cards[event.source]?.controller === YOU,
+        );
         if (event.isPlayer) {
-          this.table.floaty(`−${event.amount}`, 'damage', event.target === YOU ? 'you' : 'opponent');
-          // Only damage YOU take, and only in proportion to it. A phone that buzzes
-          // at everything is a phone the player mutes, so this is reserved for the
-          // one event they most need to feel.
-          if (event.target === YOU) buzz(Math.min(60, 12 + event.amount * 6));
+          const anchor = event.target === YOU ? 'you' : 'opponent';
+          const mine = event.target === YOU;
+          setTimeout(() => {
+            this.table.floaty(`−${event.amount}`, 'damage', anchor);
+            // Only damage YOU take, and only in proportion to it. A phone that
+            // buzzes at everything is a phone the player mutes.
+            if (mine) buzz(Math.min(60, 12 + event.amount * 6));
+          }, contact);
         }
         break;
+      }
+
       case 'LIFE_CHANGE':
         if (event.to > event.from) {
           this.table.floaty(`+${event.to - event.from}`, 'gain', event.player === YOU ? 'you' : 'opponent');
         }
         break;
+
       default:
         break;
     }
-    this.render();
+  }
+
+  /** The full card face, for ghosts leaving a hand. */
+  private imageOf(card: CardId): string {
+    const instance = this.state.cards[card];
+    if (!instance) return '';
+    if (instance.isToken) return instance.tokenSpec?.art ?? '';
+    return this.state.defs[instance.oracleId]?.image ?? '';
+  }
+
+  /** The art crop, for ghosts matching a stack row or a board tile. */
+  private artOf(card: CardId): string {
+    const instance = this.state.cards[card];
+    if (!instance) return '';
+    if (instance.isToken) return instance.tokenSpec?.art ?? '';
+    return this.state.defs[instance.oracleId]?.art ?? '';
   }
 
   /**
