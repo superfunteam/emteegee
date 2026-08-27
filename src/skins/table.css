@@ -20,6 +20,21 @@
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  /* Long press belongs to the game — it is how every card is read. Without these,
+     holding a card summons the browser instead: the iOS image callout, the save-image
+     sheet, a text-selection loupe. The contextmenu listener in gestures.ts covers
+     the Android/desktop menus these rules cannot. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* And an image must never be draggable as a browser object — the ghost the OS drags
+   looks exactly like a broken version of the game's own card drag. */
+.table img,
+.overlay img {
+  -webkit-user-drag: none;
+  user-drag: none;
 }
 
 /* ---------- player rails ---------- */
@@ -293,15 +308,20 @@
   font: inherit;
   color: inherit;
   text-align: left;
-  /* Width is deliberately NOT transitioned. The fitting pass in table.ts sets the
-     width and immediately measures the result, and an in-flight transition means it
-     measures the old layout — the loop then never sees its own effect and shrinks
-     every tile to the minimum. */
+  /* Width IS transitioned — a creature arriving resizes its neighbours, and a snap
+     there reads as the whole board glitching. The fitting pass in table.ts still
+     measures with transitions OFF (`.board--measuring` below), because it sets a
+     width and immediately reads the resulting height, and an in-flight transition
+     would make it measure the old layout forever. */
   transition:
     transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1),
+    width 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.1),
+    border-radius 0.22s,
     box-shadow 0.2s,
     opacity 0.2s;
 }
+
+.board--measuring .tile { transition: none; }
 
 /* Everything that overlays the art anchors to the art, so a badge cannot drift when
    the tile resizes. */
@@ -439,6 +459,14 @@
 @keyframes summon {
   from { transform: translateY(14px) scale(0.8); opacity: 0; }
   to { transform: none; opacity: 1; }
+}
+
+/* A tile revealed at the end of a travel ghost's flight. Softer than the summon on
+   purpose: the flight already was the entrance, so this is a settle, not a pop. */
+.tile--landed { animation: landed 0.2s ease-out; }
+
+@keyframes landed {
+  from { transform: scale(1.07); opacity: 0.35; }
 }
 
 @keyframes pulse {

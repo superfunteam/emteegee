@@ -160,6 +160,12 @@ interface PickOptions {
    */
   stat?: string;
   onTap?: (() => void) | null;
+  /**
+   * The card the gesture layer opens when this pick is held still. Long press is the
+   * one reading gesture across the whole game — fan, battlefield, panels — so every
+   * card face in a panel carries it, whatever its tap does.
+   */
+  peek?: CardId;
 }
 
 /**
@@ -168,8 +174,9 @@ interface PickOptions {
  */
 function pick(options: PickOptions): HTMLElement {
   const node = el<HTMLButtonElement>('button.pick', { type: 'button', 'aria-label': options.label });
+  if (options.peek) node.setAttribute('data-peek', options.peek);
   node.append(el('span.pick__face', {},
-    el<HTMLImageElement>('img', { src: options.src, alt: '' }),
+    el<HTMLImageElement>('img', { src: options.src, alt: '', draggable: 'false' }),
     options.stat ? el('span.pick__pt', { 'aria-hidden': 'true', text: options.stat }) : null,
   ));
   if (options.caption) node.append(el('span.pick__caption', { text: options.caption }));
@@ -184,7 +191,9 @@ function pick(options: PickOptions): HTMLElement {
 
   if (options.variant) node.classList.add(options.variant);
   if (options.onTap) node.addEventListener('click', options.onTap);
-  else node.disabled = true;
+  // A pick with no tap action stays enabled when it can be held to read — a disabled
+  // button swallows the pointer events the long press is made of.
+  else if (!options.peek) node.disabled = true;
   return node;
 }
 
@@ -237,7 +246,7 @@ export function showCard(
   const name = isToken ? (spec?.name ?? 'Token') : d!.name;
   const src = isToken ? (spec?.art ?? '') : d!.image;
 
-  const image = el<HTMLImageElement>('img.overlay__card', { src, alt: name });
+  const image = el<HTMLImageElement>('img.overlay__card', { src, alt: name, draggable: 'false' });
   if (isToken) image.classList.add('overlay__card--token');
   else image.onerror = () => { image.replaceWith(fallbackCard(state, card)); };
 
@@ -311,8 +320,8 @@ export function showZone(
     // A graveyard is a list of cards you are trying to remember the text of. Thumbnails
     // alone answered "how many", never "which".
     const thumb = el<HTMLButtonElement>('button.panel__thumbButton', {
-      type: 'button', 'aria-label': `Read ${d.name}`,
-    }, el<HTMLImageElement>('img.panel__thumb', { src: d.image, alt: '' }));
+      type: 'button', 'aria-label': `Read ${d.name}`, dataPeek: id,
+    }, el<HTMLImageElement>('img.panel__thumb', { src: d.image, alt: '', draggable: 'false' }));
     thumb.addEventListener('click', ev => {
       ev.stopPropagation();
       showCard(host, state, id);
@@ -342,7 +351,7 @@ export function showZone(
  * is a land the engine will accept.
  */
 function landsPanel(
-  host: HTMLElement, state: GameState, player: PlayerId, onTap: (card: CardId) => void,
+  state: GameState, player: PlayerId, onTap: (card: CardId) => void,
 ): { body: HTMLElement; paint: (state: GameState) => void; label: string } {
   const body = el('div.panel');
   let signature = '';
@@ -400,26 +409,28 @@ function landsPanel(
       const name = def(next, id).name;
       const makes = def(next, id).producesMana?.[0];
       const canTap = tappable.has(id);
+      const word = makes ? COLOR_WORD[makes] : 'colorless';
+      // Tap acts — the land taps for mana, right here, like it would on a table.
+      // Reading goes through the hold, same as every card face in the game; a land
+      // that cannot be tapped right now stays holdable, since that is exactly the
+      // one the player most wants to look at.
       grid.append(pick({
         src: def(next, id).image,
         variant: land.tapped ? 'pick--spent' : undefined,
+        peek: id,
         label: land.tapped
-          ? `${name}, already tapped`
+          ? `${name}, already tapped. Hold to read it.`
           : canTap
-            ? `${name}, tap for one ${makes ? COLOR_WORD[makes] : 'colorless'} mana`
-            : `${name}, untapped`,
-        // Always readable, even when it cannot be tapped — a land the player cannot
-        // use is exactly the one they are most likely to want to look at.
-        onTap: () => showCard(host, next, id, canTap
-          ? [{ label: 'Tap for mana', aria: `Tap ${name} for one ${makes ? COLOR_WORD[makes] : 'colorless'} mana`, run: () => onTap(id) }]
-          : []),
+            ? `${name}, tap for one ${word} mana. Hold to read it.`
+            : `${name}, untapped. Hold to read it.`,
+        onTap: canTap ? () => onTap(id) : null,
       }));
     }
     body.append(grid);
 
     body.append(el('div.panel__note', {
       text: lands.length
-        ? 'Casting taps these for you. Tap one now to float its mana first.'
+        ? 'Casting taps these for you. Tap one now to float its mana first. Hold one to read it.'
         : 'Mana comes from lands. One a turn, every turn.',
     }));
   };
@@ -442,7 +453,7 @@ function landsPanel(
  * left for the player to work out from the highlights.
  */
 function mulliganPanel(
-  host: HTMLElement, state: GameState, player: PlayerId,
+  state: GameState, player: PlayerId,
   onKeep: (toBottom: CardId[]) => void, onMulligan: () => void,
 ): HTMLElement {
   const hand = state.players[player].hand;
@@ -468,45 +479,39 @@ function mulliganPanel(
       const at = marked.indexOf(id);
       const chosen = at >= 0;
       const name = def(state, id).name;
+      // Tap acts, hold reads — the same grammar as everywhere else in the game. The
+      // toggle is direct because at seven-across the faces are thumbnails and the
+      // decision is fast; the rules text lives one long press away.
+      const toggle = (): void => {
+        if (chosen) marked.splice(at, 1);
+        else {
+          // Full already: the oldest pick makes room, so a player can always change
+          // their mind by tapping the card they want rather than one they do not.
+          if (marked.length >= required) marked.shift();
+          marked.push(id);
+        }
+        sound.play('select');
+        paint();
+      };
       row.append(pick({
         src: def(state, id).image,
         mark: chosen ? '↓' : null,
+        peek: id,
         label: required === 0
-          ? `${name}. Tap to read it.`
+          ? `${name}. Hold to read it.`
           : chosen
-            ? `${name}, going to the bottom. Tap to read it, or to keep it instead.`
-            : `${name}. Tap to read it, or to put it on the bottom.`,
-        // A tap reads the card. You cannot decide whether to keep a hand you cannot
-        // read, and at seven-across these faces are thumbnails — so the decision is
-        // made from the enlarged view, where the rules text actually is.
-        onTap: () => {
-          const toggle = (): void => {
-            if (chosen) marked.splice(at, 1);
-            else {
-              // Full already: the oldest pick makes room, so a player can always change
-              // their mind by tapping the card they want rather than one they do not.
-              if (marked.length >= required) marked.shift();
-              marked.push(id);
-            }
-            sound.play('select');
-            paint();
-          };
-          showCard(host, state, id, required === 0 ? [] : [{
-            label: chosen ? 'Keep on top' : 'Put on the bottom',
-            aria: chosen
-              ? `Keep ${name} in your hand`
-              : `Put ${name} on the bottom of your library`,
-            run: toggle,
-            quiet: chosen,
-          }]);
-        },
+            ? `${name}, going to the bottom. Tap to keep it instead; hold to read it.`
+            : `${name}. Tap to put it on the bottom; hold to read it.`,
+        onTap: required === 0 ? null : toggle,
       }));
     }
 
     if (required === 0) {
-      note.textContent = 'Two to four lands is a good keep. A hand with none is not.';
+      note.textContent = 'Two to four lands is a good keep. A hand with none is not. '
+        + 'Hold any card to read it.';
     } else if (left > 0) {
-      note.textContent = `Tap ${left} more card${left === 1 ? '' : 's'} to put on the bottom.`;
+      note.textContent = `Tap ${left} more card${left === 1 ? '' : 's'} to put on the bottom. `
+        + 'Hold a card to read it.';
     } else {
       note.textContent = `${required} card${required === 1 ? '' : 's'} going to the bottom. `
         + 'Tap one again to change your mind.';
@@ -579,8 +584,8 @@ function scryPanel(
       // decision about cards you have never seen — at this width the art is a hint and
       // the rules text is the answer.
       const face = el<HTMLButtonElement>('button.scry__face', {
-        type: 'button', 'aria-label': `Read ${name}`,
-      }, el<HTMLImageElement>('img.scry__card', { src: def(state, id).image, alt: '' }));
+        type: 'button', 'aria-label': `Read ${name}`, dataPeek: id,
+      }, el<HTMLImageElement>('img.scry__card', { src: def(state, id).image, alt: '', draggable: 'false' }));
       face.addEventListener('click', ev => {
         ev.stopPropagation();
         showCard(host, state, id, [
@@ -627,7 +632,7 @@ function scryPanel(
  * means something — this is a decision the attacker may decline to make.
  */
 function blockerOrderPanel(
-  host: HTMLElement, state: GameState, attacker: CardId, onConfirm: (order: CardId[]) => void,
+  state: GameState, attacker: CardId, onConfirm: (order: CardId[]) => void,
 ): HTMLElement {
   // Every id in `blockedBy` must appear in the order — including a blocker killed by a
   // trick in the window before damage, which `combat.ts` skips but legality still counts.
@@ -647,34 +652,27 @@ function blockerOrderPanel(
       const place = order.indexOf(id) + 1;
       const gone = inst(state, id).zone !== 'battlefield';
       const name = nameOf(state, id);
+      // Tap acts — the blocker moves in the order. Hold reads, which matters here:
+      // which blocker you want dead depends on what it is, and these are art crops
+      // with no rules text on them.
+      const move = (): void => {
+        if (at >= 0) chosen.splice(at, 1);
+        else chosen.push(id);
+        sound.play('select');
+        paint();
+      };
       row.append(pick({
         src: artOf(state, id),
         caption: name,
         stat: statLine(state, id),
         mark: at >= 0 ? String(at + 1) : null,
         variant: gone ? 'pick--gone' : undefined,
+        peek: id,
         label: gone
-          ? `${name} is already gone, and takes no damage`
+          ? `${name} is already gone, and takes no damage. Hold to read it.`
           : `${name}, ${powerOf(state, id)} over ${toughnessOf(state, id) - inst(state, id).damage}, `
-            + `takes damage ${place} of ${order.length}. Tap to move it up the order.`,
-        // Reading comes first here too: which blocker you want dead depends on what
-        // they are, and these are art crops with no rules text on them.
-        onTap: () => {
-          const move = (): void => {
-            if (at >= 0) chosen.splice(at, 1);
-            else chosen.push(id);
-            sound.play('select');
-            paint();
-          };
-          showCard(host, state, id, gone ? [] : [{
-            label: at >= 0 ? 'Move back' : 'Take damage first',
-            aria: at >= 0
-              ? `Take ${name} out of the damage order`
-              : `Put ${name} next in the damage order`,
-            run: move,
-            quiet: at >= 0,
-          }]);
-        },
+            + `takes damage ${place} of ${order.length}. Tap to move it up the order; hold to read it.`,
+        onTap: gone ? null : move,
       }));
     }
 
@@ -736,19 +734,19 @@ export interface PromptView {
 export function createPrompts(host: HTMLElement): PromptView {
   return {
     mulligan(state, player, onKeep, onMulligan) {
-      open(host, mulliganPanel(host, state, player, onKeep, onMulligan), 'Your opening hand', 'never');
+      open(host, mulliganPanel(state, player, onKeep, onMulligan), 'Your opening hand', 'never');
     },
     scry(state, onDecide) {
       open(host, scryPanel(host, state, onDecide), 'Scry: top or bottom', 'never');
     },
     blockerOrder(state, attacker, onConfirm) {
-      open(host, blockerOrderPanel(host, state, attacker, onConfirm), 'Damage assignment order', 'never');
+      open(host, blockerOrderPanel(state, attacker, onConfirm), 'Damage assignment order', 'never');
     },
     read(state, card, actions = []) {
       showCard(host, state, card, actions);
     },
     lands(state, player, onTap) {
-      const { body, paint, label } = landsPanel(host, state, player, onTap);
+      const { body, paint, label } = landsPanel(state, player, onTap);
       open(host, body, label, 'backdrop');
       repaint = paint;
     },
@@ -762,19 +760,6 @@ export function createPrompts(host: HTMLElement): PromptView {
 export function closeOverlay(): void {
   closeReader();
   close();
-}
-
-/**
- * Wired once per match; the session raises the event rather than importing the overlay.
- * Returns a disposer, because the host it captures dies with the table it belongs to.
- */
-export function listenForZoom(host: HTMLElement): () => void {
-  const onZoom = (ev: Event): void => {
-    const detail = (ev as CustomEvent<{ card: CardId; state: GameState }>).detail;
-    showCard(host, detail.state, detail.card);
-  };
-  window.addEventListener('emteegee:zoom', onZoom);
-  return () => window.removeEventListener('emteegee:zoom', onZoom);
 }
 
 export { clear };

@@ -32,6 +32,12 @@ export interface GestureCallbacks {
   onLongPress(target: HTMLElement): void;
   /** A hand card held still: open the reader. */
   onHandPeek(card: string): void;
+  /**
+   * Anything else held still that names a card — a battlefield tile, or any element
+   * carrying `data-peek` (the opening hand, a scry, the lands panel). Long press is
+   * THE reading gesture, everywhere a card face appears; a tap stays the act.
+   */
+  onPeek(card: string): void;
   /** A drag has left the fan — light the places this card may go. */
   onDragStart(card: string): void;
   /** The drop target under the finger changed mid-drag. Fires only on change. */
@@ -131,6 +137,7 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
     const tile = target.closest<HTMLElement>('.tile');
     const mana = target.closest<HTMLElement>('.mana--you');
     const hand = target.closest<HTMLElement>('.hand__card');
+    const peek = target.closest<HTMLElement>('[data-peek]');
 
     tracking = {
       pointerId: ev.pointerId,
@@ -157,7 +164,11 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
       ? () => callbacks.onLongPress(mana)
       : hand?.dataset.card
         ? () => callbacks.onHandPeek(hand.dataset.card!)
-        : null;
+        : tile?.dataset.card
+          ? () => callbacks.onPeek(tile.dataset.card!)
+          : peek?.dataset.peek
+            ? () => callbacks.onPeek(peek.dataset.peek!)
+            : null;
 
     if (held) {
       tracking.longPressTimer = window.setTimeout(() => {
@@ -291,10 +302,17 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
    * refused. Both can fire for one release, and the second is a no-op because the first
    * clears `tracking`.
    */
+  // Long press is the game's reading gesture, so the browser's own long-press
+  // answers — Android's context menu, a desktop right-click menu — must never win.
+  // The CSS side (-webkit-touch-callout, user-select) handles the iOS callout and
+  // the selection loupe; this handles the menus.
+  const onContextMenu = (ev: Event): void => ev.preventDefault();
+
   root.addEventListener('pointerdown', onDown);
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onCancel);
+  root.addEventListener('contextmenu', onContextMenu);
   // Capture phase, so the swallow beats every per-card click handler.
   root.addEventListener('click', onClick, true);
 
@@ -303,6 +321,7 @@ export function attachGestures(root: HTMLElement, callbacks: GestureCallbacks): 
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onCancel);
+    root.removeEventListener('contextmenu', onContextMenu);
     root.removeEventListener('click', onClick, true);
   };
 }

@@ -217,9 +217,31 @@ export function createTable(callbacks: TableCallbacks): TableView {
    */
   const held = new Set<CardId>();
 
+  /**
+   * Combat stances frozen for the length of a batch. The repaint jumps straight to
+   * the final state, where `attacking` is already false — so without this, every
+   * creature snaps home, taps and dims BEFORE its blow is shown, and the strikes
+   * launch from resting cards that no longer point at anything. Captured from the
+   * classes on screen when the batch begins, released when it ends.
+   */
+  const poses = new Map<CardId, 'attacking' | 'blocking'>();
+
+  /**
+   * Hand card nodes removed by the latest repaint, kept for one batch. A flight out
+   * of the hand adopts the card's own already-decoded <img>, so the ghost cannot
+   * flash blank while a fresh copy of the image decodes.
+   */
+  const departed = new Map<CardId, HTMLElement>();
+
+  /** A hand card's place in the fan: its unrotated box, and the angle it sat at. */
+  interface HandSpot {
+    rect: DOMRect;
+    rot: number;
+  }
+
   /** Where everything was before the current batch of events repainted the table. */
   interface Snap {
-    hand: Map<CardId, DOMRect>;
+    hand: Map<CardId, HandSpot>;
     tiles: Map<CardId, DOMRect>;
     /** The art thumb of each stack row, which is the part a ghost matches. */
     stackArts: Map<CardId, DOMRect>;
@@ -237,8 +259,8 @@ export function createTable(callbacks: TableCallbacks): TableView {
     patchRail(youRail, state, ui.you, true, ui, callbacks);
     patchMana(oppMana, state, them, false, callbacks);
     patchMana(youMana, state, ui.you, true, callbacks);
-    patchBoard(oppBoard, state, them, ui, tiles, held, callbacks);
-    patchBoard(youBoard, state, ui.you, ui, tiles, held, callbacks);
+    patchBoard(oppBoard, state, them, ui, tiles, held, poses, callbacks);
+    patchBoard(youBoard, state, ui.you, ui, tiles, held, poses, callbacks);
     youBoard.classList.toggle('board--drop', ui.boardDrop);
     youMana.classList.toggle('mana--drop', ui.landDrop);
     // Sized after both boards exist, so each measures the height it actually got.
@@ -246,7 +268,7 @@ export function createTable(callbacks: TableCallbacks): TableView {
     sizeTiles(youBoard);
     patchMid(mid, state, ui.you, callbacks);
     patchStack(stack, state, ui.you, card => callbacks.onTileTap(card));
-    patchHand(hand, state, ui, handCards, actions, callbacks);
+    patchHand(hand, state, ui, handCards, departed, actions, callbacks);
     patchBacks(backs, state, them);
 
     act.textContent = ui.actLabel;
@@ -305,19 +327,33 @@ export function createTable(callbacks: TableCallbacks): TableView {
     (you ? youMana : oppMana).querySelector<HTMLElement>('.mana__lands');
 
   /** Where a flight out of a player's hand starts: your card, or their card backs. */
-  function handOrigin(card: CardId, you: boolean): DOMRect | null {
+  function handOrigin(card: CardId, you: boolean): HandSpot | null {
     if (!snap) return null;
     if (you) return snap.hand.get(card) ?? null;
-    return rectAt(centerOf(snap.backs), 34, 47);
+    return { rect: rectAt(centerOf(snap.backs), 34, 47), rot: 0 };
   }
 
+  /**
+   * The face a ghost leaving your hand wears: the departed card's own <img>, adopted
+   * whole. A freshly created image — even a cached one — can paint a frame or two
+   * late while it decodes, which reads as the card blinking out and reloading mid
+   * flight. The element that was already on screen cannot.
+   */
+  function handGhost(card: CardId, image: string): HTMLElement {
+    const img = departed.get(card)?.querySelector('img');
+    if (img) return el('div.fx__card', {}, img);
+    return ghostCard(image);
+  }
+
+  /**
+   * The ghost has landed: the tile fades up and settles where the flight left it.
+   * Deliberately NOT the summon animation — the flight already was the entrance,
+   * and replaying a second pop on top of it read as the card arriving twice.
+   */
   function revealTile(tile: HTMLElement): void {
     tile.style.opacity = '';
     tile.classList.remove('tile--entering');
-    reflow(tile);
-    tile.classList.add('tile--entering');
-    tile.addEventListener('animationend', () => tile.classList.remove('tile--entering'), { once: true });
-    setTimeout(() => tile.classList.remove('tile--entering'), 700);
+    flash(tile, 'tile--landed', 400);
   }
 
   return {
@@ -333,14 +369,32 @@ export function createTable(callbacks: TableCallbacks): TableView {
         const art = row.querySelector<HTMLElement>('.stack__art');
         if (row.dataset.card && art) stackArts.set(row.dataset.card, art.getBoundingClientRect());
       }
+      const handSpots = new Map<CardId, HandSpot>();
+      for (const [id, node] of handCards) {
+        // The bounding rect of a rotated card is bigger than the card. Normalise to
+        // the unrotated box around the same centre and remember the angle, so the
+        // ghost starts exactly on the card instead of on its bounding box.
+        handSpots.set(id, {
+          rect: rectAt(centerOf(node.getBoundingClientRect()), node.offsetWidth, node.offsetHeight),
+          rot: parseFloat(node.style.getPropertyValue('--rot')) || 0,
+        });
+      }
       snap = {
-        hand: new Map([...handCards].map(([id, node]) => [id, node.getBoundingClientRect()])),
+        hand: handSpots,
         tiles: new Map([...tiles].map(([id, node]) => [id, node.getBoundingClientRect()])),
         stackArts,
         backs: backs.getBoundingClientRect(),
         libYou: youRail.querySelector('.js-lib')?.getBoundingClientRect() ?? null,
         libThem: oppRail.querySelector('.js-lib')?.getBoundingClientRect() ?? null,
       };
+      departed.clear();
+      // Freeze the combat stances currently on screen; the coming repaint would
+      // otherwise clear them before the blows they explain have played.
+      poses.clear();
+      for (const [id, tile] of tiles) {
+        if (tile.classList.contains('tile--attacking')) poses.set(id, 'attacking');
+        else if (tile.classList.contains('tile--blocking')) poses.set(id, 'blocking');
+      }
     },
 
     holdForDeaths(cards) {
@@ -357,6 +411,11 @@ export function createTable(callbacks: TableCallbacks): TableView {
         }
       }
       held.clear();
+      // The batch is over: survivors ease home, tap and dim on their transitions.
+      if (poses.size) {
+        poses.clear();
+        repatch();
+      }
     },
 
     perish(card, opts) {
@@ -386,7 +445,10 @@ export function createTable(callbacks: TableCallbacks): TableView {
     strike(source, target, sourceYours) {
       const targetNode = target.kind === 'tile' ? tiles.get(target.id) : target.you ? youRail : oppRail;
       if (!targetNode) return 0;
-      const contact = centerOf(targetNode.getBoundingClientRect());
+      // A player is hit in their life total, not in the middle of their whole rail —
+      // the ring lands where the number is about to change, next to the floaty.
+      const lifeNode = target.kind === 'rail' ? targetNode.querySelector<HTMLElement>('.rail__life') : null;
+      const contact = centerOf((lifeNode ?? targetNode).getBoundingClientRect());
 
       const land = (): void => {
         impactRing(fx, contact);
@@ -403,7 +465,7 @@ export function createTable(callbacks: TableCallbacks): TableView {
         setTimeout(land, delay);
         return delay;
       }
-      const origin = snap?.stackArts.get(source) ?? handOrigin(source, sourceYours);
+      const origin = snap?.stackArts.get(source) ?? handOrigin(source, sourceYours)?.rect;
       if (origin) {
         bolt(fx, centerOf(origin), contact, 190, land);
         return 190;
@@ -432,20 +494,23 @@ export function createTable(callbacks: TableCallbacks): TableView {
       const from = handOrigin(card, you);
       const home = manaHome(you);
       if (!from || !home) return;
-      fly(fx, ghostCard(image), {
-        from, to: home.getBoundingClientRect(), duration: 300, arc: 22, settleOpacity: 0,
+      fly(fx, handGhost(card, image), {
+        from: from.rect, fromRotation: from.rot,
+        to: home.getBoundingClientRect(), duration: 300, arc: 22, settleOpacity: 0,
       });
     },
 
     flyFromHand(card, image, you, dest) {
       const from = handOrigin(card, you);
       if (!from) return;
+      const ghost = handGhost(card, image);
 
       if (dest === 'stack') {
         const row = stack.querySelector<HTMLElement>(`.stack__item[data-card="${card}"] .stack__art`);
         if (row) {
-          fly(fx, ghostCard(image), {
-            from, to: row.getBoundingClientRect(), duration: 280, arc: 18, settleOpacity: 0.1,
+          fly(fx, ghost, {
+            from: from.rect, fromRotation: from.rot,
+            to: row.getBoundingClientRect(), duration: 280, arc: 18, settleOpacity: 0.1,
           });
           return;
         }
@@ -456,8 +521,9 @@ export function createTable(callbacks: TableCallbacks): TableView {
         const tile = tiles.get(card);
         if (tile) {
           tile.style.opacity = '0';
-          fly(fx, ghostCard(image), {
-            from, to: tile.getBoundingClientRect(), duration: 280, arc: 18,
+          fly(fx, ghost, {
+            from: from.rect, fromRotation: from.rot,
+            to: tile.getBoundingClientRect(), duration: 280, arc: 18, settleOpacity: 0.35,
             onArrive: () => revealTile(tile),
           });
           return;
@@ -468,8 +534,9 @@ export function createTable(callbacks: TableCallbacks): TableView {
       if (dest === 'grave') {
         const yard = mid.querySelector<HTMLElement>('.yard button');
         if (yard) {
-          fly(fx, ghostCard(image), {
-            from, to: yard.getBoundingClientRect(), duration: 280, arc: 18, settleOpacity: 0.2,
+          fly(fx, ghost, {
+            from: from.rect, fromRotation: from.rot,
+            to: yard.getBoundingClientRect(), duration: 280, arc: 18, settleOpacity: 0.2,
           });
           return;
         }
@@ -477,8 +544,9 @@ export function createTable(callbacks: TableCallbacks): TableView {
       }
 
       // A spell with no home to show: it happens at mid-table and fades there.
-      fly(fx, ghostCard(image), {
-        from, to: rectAt(centerOf(mid.getBoundingClientRect()), 56, 40),
+      fly(fx, ghost, {
+        from: from.rect, fromRotation: from.rot,
+        to: rectAt(centerOf(mid.getBoundingClientRect()), 56, 40),
         duration: 280, arc: 18, settleOpacity: 0,
       });
     },
@@ -495,7 +563,7 @@ export function createTable(callbacks: TableCallbacks): TableView {
           if (snap?.tiles.has(card)) return;
           tile.style.opacity = '0';
           fly(fx, ghostCard(art), {
-            from, to: tile.getBoundingClientRect(), duration: 240, arc: 16,
+            from, to: tile.getBoundingClientRect(), duration: 240, arc: 16, settleOpacity: 0.35,
             onArrive: () => revealTile(tile),
           });
           return;
@@ -728,7 +796,8 @@ const COLOR_NAME: Record<Color | 'C', string> = {
 
 function patchBoard(
   node: HTMLElement, state: GameState, player: PlayerId, ui: UiState,
-  tiles: Map<CardId, HTMLElement>, held: ReadonlySet<CardId>, callbacks: TableCallbacks,
+  tiles: Map<CardId, HTMLElement>, held: ReadonlySet<CardId>,
+  poses: ReadonlyMap<CardId, 'attacking' | 'blocking'>, callbacks: TableCallbacks,
 ): void {
   const creatures = cardsIn(state, player, 'battlefield').filter(id => isCreature(state, id));
 
@@ -767,7 +836,7 @@ function patchBoard(
       tiles.set(id, tile);
     }
     if (row!.children[index] !== tile) row!.insertBefore(tile, row!.children[index] ?? null);
-    updateTile(tile, state, id, ui);
+    updateTile(tile, state, id, ui, poses.get(id));
   });
 }
 
@@ -798,6 +867,15 @@ function sizeTiles(board: HTMLElement): void {
   const budget = board.clientHeight - padY;
   if (budget <= 0) return;
 
+  // The width every tile currently wears, so the change can be animated below.
+  const before = parseFloat(board.style.getPropertyValue('--tile-w')) || 0;
+
+  // Transitions off while measuring: the loop sets a width and immediately reads the
+  // resulting height, and an in-flight transition would make it measure the old
+  // layout — the loop then never sees its own effect and shrinks everything to the
+  // minimum.
+  board.classList.add('board--measuring');
+
   let width = TILE_MAX;
   board.style.setProperty('--tile-w', `${width}px`);
 
@@ -808,12 +886,24 @@ function sizeTiles(board: HTMLElement): void {
     width = Math.max(TILE_MIN, Math.floor(width * 0.86));
     board.style.setProperty('--tile-w', `${width}px`);
   }
+
+  // Measurement done. If the answer moved, walk back to the old width, re-enable
+  // transitions and set the new one — so a creature arriving resizes its neighbours
+  // smoothly instead of snapping every tile on the board in one frame.
+  if (before > 0 && Math.abs(width - before) > 1) {
+    board.style.setProperty('--tile-w', `${before}px`);
+    reflow(row);
+    board.classList.remove('board--measuring');
+    board.style.setProperty('--tile-w', `${width}px`);
+  } else {
+    board.classList.remove('board--measuring');
+  }
 }
 
 function buildTile(id: CardId, callbacks: TableCallbacks): HTMLElement {
   const tile = el('button.tile', { type: 'button', dataCard: id },
     el('div.tile__frame', {},
-      el('img.tile__art', { alt: '' }),
+      el('img.tile__art', { alt: '', draggable: 'false' }),
       el('div.tile__keywords', { 'aria-hidden': 'true' }),
       el('div.tile__pt', { 'aria-hidden': 'true' }),
     ),
@@ -823,7 +913,10 @@ function buildTile(id: CardId, callbacks: TableCallbacks): HTMLElement {
   return tile;
 }
 
-function updateTile(tile: HTMLElement, state: GameState, id: CardId, ui: UiState): void {
+function updateTile(
+  tile: HTMLElement, state: GameState, id: CardId, ui: UiState,
+  pose?: 'attacking' | 'blocking',
+): void {
   const card = inst(state, id);
   const d = def(state, id);
   const power = powerOf(state, id);
@@ -854,10 +947,17 @@ function updateTile(tile: HTMLElement, state: GameState, id: CardId, ui: UiState
     for (const k of shown) glyphs.append(el('i', { title: k, text: KEYWORD_GLYPH[k] ?? '' }));
   }
 
-  tile.classList.toggle('tile--tapped', card.tapped);
-  tile.classList.toggle('tile--attacking', card.attacking);
-  tile.classList.toggle('tile--blocking', card.blocking !== undefined);
-  setLunge(tile, card.attacking, card.blocking !== undefined, card.controller === ui.you);
+  // A frozen pose outranks the state: mid-batch the fight is still being SHOWN,
+  // even though the engine has already moved on. Tapping and dimming wait for the
+  // whole engagement — an attacker taps the moment it is declared, but a dimmed,
+  // rotated card charging into battle reads as spent, not as fighting. It goes
+  // visibly spent when the exchange is over, not while its blow is landing.
+  const attacking = card.attacking || pose === 'attacking';
+  const blocking = card.blocking !== undefined || pose === 'blocking';
+  tile.classList.toggle('tile--tapped', card.tapped && !attacking && !blocking);
+  tile.classList.toggle('tile--attacking', attacking);
+  tile.classList.toggle('tile--blocking', blocking);
+  setLunge(tile, attacking, blocking, card.controller === ui.you);
   tile.classList.toggle('tile--selected', ui.selected.has(id));
   tile.classList.toggle('tile--targetable', ui.targetable.has(id));
   // The one under the finger, marked apart from the ones merely eligible.
@@ -994,7 +1094,8 @@ function patchMid(node: HTMLElement, state: GameState, you: PlayerId, callbacks:
 
 function patchHand(
   node: HTMLElement, state: GameState, ui: UiState,
-  cards: Map<CardId, HTMLElement>, actions: Action[], callbacks: TableCallbacks,
+  cards: Map<CardId, HTMLElement>, departed: Map<CardId, HTMLElement>,
+  actions: Action[], callbacks: TableCallbacks,
 ): void {
   const inHand = state.players[ui.you].hand;
 
@@ -1008,7 +1109,13 @@ function patchHand(
 
   const present = new Set(inHand);
   for (const [id, card] of cards) {
-    if (!present.has(id)) { card.remove(); cards.delete(id); }
+    if (!present.has(id)) {
+      card.remove();
+      cards.delete(id);
+      // Kept for the length of the batch: a flight out of the hand adopts this
+      // node's <img> so the ghost wears an already-decoded face.
+      departed.set(id, card);
+    }
   }
 
   /*
@@ -1035,7 +1142,7 @@ function patchHand(
     if (!card) {
       const d = def(state, id);
       card = el('button.hand__card', { type: 'button', dataCard: id },
-        el('img', { src: d.image, alt: '' }));
+        el('img', { src: d.image, alt: '', draggable: 'false' }));
       card.addEventListener('click', () => callbacks.onHandTap(id));
       cards.set(id, card);
     }

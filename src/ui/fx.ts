@@ -49,6 +49,12 @@ interface FlightOpts {
   arc?: number;
   /** Opacity on arrival. Ghosts landing in a real home should fade into it. */
   settleOpacity?: number;
+  /**
+   * The angle the thing was sitting at when it left — a card in the fan is rotated.
+   * The ghost starts at that angle and straightens as it flies, so departure is
+   * seamless instead of the card snapping upright the frame it takes off.
+   */
+  fromRotation?: number;
   onArrive?: () => void;
 }
 
@@ -73,17 +79,18 @@ export function fly(layer: HTMLElement, content: HTMLElement, opts: FlightOpts):
   const dy = to.top + to.height / 2 - (from.top + from.height / 2);
   const arc = opts.arc ?? 0;
   const settle = opts.settleOpacity ?? 1;
+  const rot = opts.fromRotation ?? 0;
 
   run(
     ghost,
     [
-      { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+      { transform: `translate(0px, 0px) rotate(${rot}deg) scale(1)`, opacity: 1 },
       {
-        transform: `translate(${dx / 2}px, ${dy / 2 - arc}px) scale(${(1 + scale) / 2})`,
+        transform: `translate(${dx / 2}px, ${dy / 2 - arc}px) rotate(${rot / 2}deg) scale(${(1 + scale) / 2})`,
         opacity: 1,
         offset: 0.55,
       },
-      { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: settle },
+      { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(${scale})`, opacity: settle },
     ],
     opts.duration,
     opts.onArrive,

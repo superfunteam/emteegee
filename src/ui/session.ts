@@ -131,8 +131,13 @@ export class Session {
     this.render();
   }
 
-  /** A hand card held still: the reader, committing to nothing. */
-  handPeek(card: CardId): void {
+  /**
+   * Any card held still — in the fan, on the battlefield, in a panel: the reader,
+   * committing to nothing. Long press is THE reading gesture; a tap is always the
+   * act. Reading is not a move, so this is not gated on priority or animation.
+   */
+  peek(card: CardId): void {
+    if (!this.state.cards[card]) return;
     this.prompts.read(this.state, card, []);
   }
 
@@ -264,7 +269,8 @@ export class Session {
         return;
 
       case 'idle':
-        this.zoom(card);
+        // Deliberately nothing. A tap is the acting gesture and there is nothing to
+        // act on here; reading goes through long press, same as everywhere else.
         return;
     }
   }
@@ -395,7 +401,7 @@ export class Session {
 
   private toggleAttacker(card: CardId): void {
     if (this.mode.kind !== 'attacking') return;
-    if (inst(this.state, card).controller !== YOU) { this.zoom(card); return; }
+    if (inst(this.state, card).controller !== YOU) return;
 
     const canAttackWith = legalActions(this.state).some(
       a => a.kind === 'declareAttackers' && a.attackers.includes(card),
@@ -423,7 +429,7 @@ export class Session {
       return;
     }
 
-    if (!this.mode.blocker) { this.zoom(card); return; }
+    if (!this.mode.blocker) return;
     if (!card_.attacking) { sound.play('illegal', { gain: 0.5 }); return; }
 
     const pairs = new Map(this.mode.pairs);
@@ -431,10 +437,6 @@ export class Session {
     this.mode = { kind: 'blocking', blocker: null, pairs };
     sound.play('block', { gain: 0.6 });
     this.render();
-  }
-
-  private zoom(card: CardId): void {
-    window.dispatchEvent(new CustomEvent('emteegee:zoom', { detail: { card, state: this.state } }));
   }
 
   /** Explains an unaffordable card rather than silently rejecting the tap. */

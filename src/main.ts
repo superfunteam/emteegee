@@ -14,7 +14,7 @@ import type { Tier } from './bot/magician';
 import { createTable } from './ui/table';
 import { Session, YOU, THEM } from './ui/session';
 import { attachGestures } from './ui/gestures';
-import { createPrompts, listenForZoom, showCard, showZone, closeOverlay } from './ui/overlay';
+import { createPrompts, showCard, showZone, closeOverlay } from './ui/overlay';
 import {
   titleScreen, deckScreen, resultScreen, settingsScreen,
   applySkin, loadSkin, type Skin,
@@ -30,15 +30,11 @@ if (!app) throw new Error('emteegee: #app is missing from index.html');
 let skin: Skin = loadSkin();
 let activeSession: Session | null = null;
 let detachGestures: (() => void) | null = null;
-let detachZoom: (() => void) | null = null;
 
 function show(node: HTMLElement): void {
   closeOverlay();
   detachGestures?.();
   detachGestures = null;
-  // The zoom listener captures the table it renders into, so it has to die with it.
-  detachZoom?.();
-  detachZoom = null;
   activeSession = null;
   app!.replaceChildren(node);
   applySkin(skin, app!);
@@ -93,18 +89,19 @@ function startMatch(deck: Deck, tier: Tier): void {
 
   show(table.root);
   activeSession = session;
-  detachZoom = listenForZoom(table.root);
 
   detachGestures = attachGestures(table.root, {
     // Long-pressing the mana row opens the real lands, which is where the abstraction
     // gives way: the gems are a summary, these are the cards you tap.
     onSwipeUp: card => session.swipeUp(card),
     onLongPress: () => session.manaTap(YOU),
-    // Holding a card in hand reads it. Tapping casts, so without this the only way to
-    // find out what a card does is to play it — which is exactly backwards for the
-    // audience this game is for. Reading is not a move, so it goes straight to the
-    // overlay: it works on the opponent's turn and mid-animation too.
-    onHandPeek: card => session.handPeek(card),
+    // Holding a card reads it — in the fan, on the battlefield, in a panel. Tapping
+    // acts, so without this the only way to find out what a card does is to play it,
+    // which is exactly backwards for the audience this game is for. Reading is not a
+    // move, so it goes straight to the overlay: it works on the opponent's turn and
+    // mid-animation too.
+    onHandPeek: card => session.peek(card),
+    onPeek: card => session.peek(card),
     onDragStart: card => session.dragStart(card),
     onDragOver: (card, target) => session.dragOver(card, target),
     onDrop: (card, target) => session.drop(card, target),
